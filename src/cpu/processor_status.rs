@@ -33,29 +33,28 @@ pub enum ProcessorStatusFlags
     Negative =            0b01000000,
 }
 
-// pub type ProcessorStatus = u8;
-
+/// Wrapper for a u8 with bit flag functions that uses the ProcessorStatusFlags enum
 pub struct ProcessorStatus (pub u8);
 
 impl ProcessorStatus {
 
     /// Flips whatever flag you give it
-    fn set_flag_true(&mut self, flag: ProcessorStatusFlags) {
+    pub fn set_flag_true(&mut self, flag: ProcessorStatusFlags) {
         let ProcessorStatus(status) = self;
         *status |= flag as u8;
     }
 
-    fn set_flag_false(&mut self, flag: ProcessorStatusFlags) {
+    pub fn set_flag_false(&mut self, flag: ProcessorStatusFlags) {
         let ProcessorStatus(status) = self;
         *status &= !(flag as u8);
     }
 
-    fn toggle_flag(&mut self, flag: ProcessorStatusFlags) {
+    pub fn toggle_flag(&mut self, flag: ProcessorStatusFlags) {
         let ProcessorStatus(status) = self;
         *status &= !(flag as u8);
     }
 
-    fn has_flag_set(&self, flag: ProcessorStatusFlags) -> bool
+    pub fn has_flag_set(&self, flag: ProcessorStatusFlags) -> bool
     {
         let ProcessorStatus(status) = self;
         return status & (flag as u8) != 0;
@@ -72,6 +71,22 @@ mod tests {
         status.set_flag_true(ProcessorStatusFlags::CarryFlag);
 
         assert_eq!(status.has_flag_set(ProcessorStatusFlags::CarryFlag), true);
-        assert_eq!(status.has_flag_set(ProcessorStatusFlags::InterruptDisable), false);
+
+        status.set_flag_true(ProcessorStatusFlags::DecimalMode);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::DecimalMode), true);
+
+        status.set_flag_false(ProcessorStatusFlags::DecimalMode);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::DecimalMode), false);
+    }
+
+    #[test]
+    fn toggle_flag()
+    {
+        let mut status = ProcessorStatus(0);
+        status.set_flag_true(ProcessorStatusFlags::BreakCommand);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::BreakCommand), true);
+
+        status.toggle_flag(ProcessorStatusFlags::BreakCommand);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::BreakCommand), false);
     }
 }
