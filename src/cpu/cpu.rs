@@ -2,6 +2,8 @@
 
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
+use std::ops::Add;
+
 use log::{info, trace};
 
 use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
@@ -41,6 +43,9 @@ pub struct CPU
 pub enum AddressingMode
 {
     NoneAddressing,
+
+    /// The operation operated on the accumulator register
+    Accumulator,
 
     /// just an 8 bit constant for the address
     Immediate,
@@ -124,7 +129,7 @@ impl CPU
         deref
       }
 
-      AddressingMode::NoneAddressing => {
+      AddressingMode::NoneAddressing | AddressingMode::Accumulator => {
         panic!("mode {:?} is not supported", mode);
       }
     }
@@ -179,6 +184,15 @@ impl CPU
           // and opcode
           0x29 | 0x25 | 0x35 | 0x2D | 0x3D | 0x39 | 0x21 | 0x31 => {
             self.and(&opcode.addressing_mode);
+          }
+          
+          // asl
+          0x0A => {
+            self.asl_acc();
+          }
+
+          0x06 | 0x16 | 0x0E | 0x1E => {
+            self.asl(&opcode.addressing_mode);
           }
 
           0x00 => return,
@@ -253,6 +267,24 @@ impl CPU {
     let addr = self.get_operand_address(mode);
     let val = self.memory.read_mem_u8(addr);
     self.set_register_a(self.accumulator & val);
+  }
+
+  /// Arithmetic shift left. the 7 bit is placed in the carry flag
+  fn asl(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+    let res: u16 = (val as u16) << 1;
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, res > 0xFF);
+
+    self.memory.write_mem_u8(addr, res as u8);
+  }
+
+  /// Arithmetic shift on the accumulate register
+  fn asl_acc(&mut self) {
+    let res: u16 = (self.accumulator as u16) << 1;
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, res > 0xFF);
+
+    self.set_register_a(res as u8);
   }
 
 

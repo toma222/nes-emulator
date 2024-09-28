@@ -95,6 +95,14 @@ impl ProcessorStatus {
         *status &= !(flag as u8);
     }
 
+    pub fn set_flag(&mut self, flag: ProcessorStatusFlags, val: bool) {
+        if val {
+            self.set_flag_true(flag);
+        } else {
+            self.set_flag_false(flag);
+        }
+    }
+
     pub fn toggle_flag(&mut self, flag: ProcessorStatusFlags) {
         let ProcessorStatus(status) = self;
         *status &= !(flag as u8);
