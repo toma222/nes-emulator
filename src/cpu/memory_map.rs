@@ -16,50 +16,7 @@ pub struct MemoryMap
     memory: [u8; 0xFFFF]
 }
 
-// These are the diffrent ways that an instruction can address data
-pub enum AddressingMode
-{
-    /// The address is implied by the instruction
-    Implicit,
 
-    /// operates on the accumulator
-    Accumulate,
-
-    /// just an 8 bit constant for the address
-    Immediate,
-    
-    /// 8 bit operand limiting it to the first 256 bytes of memory
-    /// the most significant byte is always 0
-    ZeroPage,
-
-    /// same as zero page, but it adds whatever is in the x register to the address
-    ZeroPageX,
-
-    /// same as zero page, but it adds whatever is in the y register to the address
-    ZeroPageY,
-
-    /// contain a signed 8 bit relative offset which is added to the program counter.
-    Relative,
-
-    /// Contain the full 16 byte address
-    Absolute,
-
-    /// Adds the 16 byte address with the x register
-    AbsoluteX,
-
-    /// Adds the 16 byte address with the y register
-    AbsoluteY,
-
-    /// its a 16 bit address that identifies the location of the least signigicant byte
-    /// of another 16 bit memory address which is the real target of the instruction
-    Indirect,
-
-    /// same as indirect but we add the x register
-    IndexedIndirect,
-
-    /// same as indirect but we add the y register
-    IndirectIndexed,
-}
 
 impl MemoryMap
 {
@@ -99,17 +56,6 @@ impl MemoryMap
         
         self.memory[loc as usize] = buffer[0];
         self.memory[(loc + 1) as usize] = buffer[1];
-    }
-
-    // if its supposed to return a u8 then you can cast it to a u8 <3
-    pub fn read_mem_mode(&mut self, cpu_ref: &CPU, mode: AddressingMode, loc: u16) -> u16
-    {
-        match mode {
-            AddressingMode::ZeroPage => { self.read_mem_u8(loc) as u16 }
-            AddressingMode::ZeroPageX => { self.read_mem_u8(loc + cpu_ref.index_register_x as u16) as u16 }
-            AddressingMode::ZeroPageY => { self.read_mem_u8(loc + cpu_ref.index_register_y as u16) as u16 }
-            _ => return 0
-        }
     }
 }
 
