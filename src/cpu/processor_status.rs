@@ -25,12 +25,15 @@ pub enum ProcessorStatusFlags
     /// This is set when the BRK instruction is called
     BreakCommand =        0b00010000,
 
+    /// This is another break bit
+    BreakCommand2 =       0b00100000,
+
     /// this overflow is set if the result of an arithmetic operation
     /// has yielded an invalid 2's complement
-    Overflow =            0b00100000,
+    Overflow =            0b01000000,
     
     /// this flag is set if the result of the last operation had bit 7 set to a one
-    Negative =            0b01000000,
+    Negative =            0b10000000,
 }
 
 /// Wrapper for a u8 with bit flag functions that uses the ProcessorStatusFlags enum

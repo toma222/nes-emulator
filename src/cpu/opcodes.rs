@@ -1,16 +1,16 @@
 
-use std::ops::Add;
+use std::{collections::HashMap, ops::Add};
 
 use crate::cpu::cpu::AddressingMode;
 use lazy_static::lazy_static;
 
 pub struct OpCode
 {
-    code: u8,
-    mnemonic: &'static str,
-    bytes: u8,
-    cycles: u8,
-    addressing_mode: AddressingMode,
+    pub code: u8,
+    pub mnemonic: &'static str,
+    pub bytes: u8,
+    pub cycles: u8,
+    pub addressing_mode: AddressingMode,
 }
 
 impl OpCode {
@@ -26,7 +26,7 @@ impl OpCode {
 }
 
 lazy_static! {
-    static ref OPCODE_ARRAY: Vec<OpCode> = vec![
+    static ref CPU_OPCODES: Vec<OpCode> = vec![
         OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),
         OpCode::new(0xA5, "LDA", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0xB5, "LDA", 2, 4, AddressingMode::ZeroPageX),
@@ -39,4 +39,14 @@ lazy_static! {
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
         OpCode::new(0xAA, "TAX", 1, 2, AddressingMode::NoneAddressing),
     ];
+
+    pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {
+        let mut map = HashMap::new();
+        for code in &*CPU_OPCODES {
+            map.insert(code.code, code);
+        }
+        map
+    };
+    
 }
+

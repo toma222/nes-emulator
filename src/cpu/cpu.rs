@@ -5,7 +5,9 @@
 use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
 use crate::cpu::memory_map::{MemoryMap};
 
-use byteorder::{ByteOrder, LittleEndian, ReadBytesExt}; // 1.3.4
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
+
+use super::opcodes::OPCODES_MAP; // 1.3.4
 
 /// Defines the state of a 6502 CPU
 /// just a reminder that the CPU will store data little endian <3
@@ -90,7 +92,7 @@ impl CPU
 
   /// Assumes the next part of the program counter is an address
   /// this function gets the address from that address using the specified addressing mode
-  fn get_operand_address(&self, mode: AddressingMode) -> u16
+  fn get_operand_address(&self, mode: &AddressingMode) -> u16
   {
     match mode {
       AddressingMode::Immediate => self.program_counter,
@@ -152,11 +154,35 @@ impl CPU
       let code = self.memory.read_mem_u8(self.program_counter);
       self.program_counter += 1; // consume the read instruction and point to the next
 
+      let opcode = OPCODES_MAP.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
+      let program_counter_state = self.program_counter;
+
       match code {
+          // LDA opcode
+          0xA9 | 0xA5  | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
+            self.lda(&opcode.addressing_mode);
+          } 
+
           0x00 => return,
           _ => todo!()
       }
+
+      // increment the program counter
+      if program_counter_state == self.program_counter {
+        self.program_counter += (opcode.bytes - 1) as u16;
+      }
     }
+  }
+}
+
+impl CPU {
+  /// Loads a value into the a register
+  fn lda(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let value = self.memory.read_mem_u8(addr);
+
+    self.accumulator = value;
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
   }
 }
 
@@ -170,7 +196,12 @@ mod tests {
         assert_eq!(cpu.index_register_x, 0);
     }
 
-    fn cpu_address_immediate() {
-      let cpu = CPU::new();
+    #[test]
+    fn cpu_lda_from_memory() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x10, 0x55);
+      cpu.load_and_run_program(vec![0xa5, 0x10, 0x00]);
+
+      assert_eq!(cpu.accumulator, 0x55);
     }
 }
