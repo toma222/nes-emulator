@@ -2,10 +2,10 @@
 
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
-use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
-use crate::cpu::memory_map::{MemoryMap};
+use log::trace;
 
-use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
+use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
+use crate::cpu::memory_map::MemoryMap;
 
 use super::opcodes::OPCODES_MAP; // 1.3.4
 
@@ -77,7 +77,7 @@ pub enum AddressingMode
 
 impl CPU
 {
-  fn new() -> CPU
+  pub fn new() -> CPU
   {
     return CPU{
       program_counter: 0,
@@ -125,7 +125,7 @@ impl CPU
   }
 
   /// Resets all the registers and gets the first instruction of the program
-  fn reset(&mut self)
+  pub fn reset(&mut self)
   {
     self.index_register_x = 0;
     self.index_register_y = 0;
@@ -138,18 +138,18 @@ impl CPU
   /// Loads the program at 0x8000 in the address space.
   /// it then writes the first instruction (0x8000) to 0xFFFC.
   /// 0xFFFC is were the program looks for the fist instruction of the program
-  fn load_program(&mut self, program: Vec<u8>) {
+  pub fn load_program(&mut self, program: Vec<u8>) {
     self.memory.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
     self.memory.write_mem_u16(0xFFFC, 0x8000);
   }
 
-  fn load_and_run_program(&mut self, program: Vec<u8>) {
+  pub fn load_and_run_program(&mut self, program: Vec<u8>) {
     self.load_program(program);
     self.reset();
     self.run_program();
   }
 
-  fn run_program(&mut self) {
+  pub fn run_program(&mut self) {
     loop {
       let code = self.memory.read_mem_u8(self.program_counter);
       self.program_counter += 1; // consume the read instruction and point to the next
@@ -157,11 +157,18 @@ impl CPU
       let opcode = OPCODES_MAP.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
       let program_counter_state = self.program_counter;
 
+      trace!("prg_c: {:02X?} | {:?}", self.program_counter, opcode);
+
       match code {
           // LDA opcode
           0xA9 | 0xA5  | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
             self.lda(&opcode.addressing_mode);
           } 
+
+          // adc opcode
+          0x69 | 0x65 | 0x75 | 0x6D | 0x7D | 0x79 | 0x61 | 0x71 => {
+            self.lda(&opcode.addressing_mode);
+          }
 
           0x00 => return,
           _ => todo!()
@@ -176,14 +183,62 @@ impl CPU
 }
 
 impl CPU {
+
+  /// Helper function that loads field data into register A
+  fn add_to_register_a(&mut self, data: u8) {
+    let sum = self.accumulator as u16
+      + data as u16 
+      + (if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) {
+        1
+      } else {
+        0
+      }) as u16;
+
+      let carry = sum > 0xff;
+
+      if carry {
+        self.processor_status.set_flag_true(ProcessorStatusFlags::CarryFlag);
+      } else {
+        self.processor_status.set_flag_false(ProcessorStatusFlags::CarryFlag);
+      }
+
+      let result = sum as u8;
+
+      // checks if the sign bit changed
+      if(data ^ result) & (result ^ self.accumulator) & 0x80 != 0 {
+        self.processor_status.set_flag_true(ProcessorStatusFlags::Overflow);
+      } else {
+        self.processor_status.set_flag_false(ProcessorStatusFlags::Overflow);
+      }
+
+      self.set_register_a(data);
+  }
+
+  fn set_register_a(&mut self, data: u8) {
+    self.accumulator = data;
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+  }
+
+
+  /// Add with carry
+  /// Adds the contents of a memory location to the accumulator with the carry bit
+  /// if it overflows then we set the carry bit
+  fn adc(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let value = self.memory.read_mem_u8(addr);
+
+    self.add_to_register_a(value);
+  }
+
   /// Loads a value into the a register
   fn lda(&mut self, mode: &AddressingMode) {
     let addr = self.get_operand_address(mode);
     let value = self.memory.read_mem_u8(addr);
 
-    self.accumulator = value;
-    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+    self.set_register_a(value);
   }
+
+
 }
 
 #[cfg(test)]
@@ -199,9 +254,33 @@ mod tests {
     #[test]
     fn cpu_lda_from_memory() {
       let mut cpu = CPU::new();
-      cpu.memory.write_mem_u8(0x10, 0x55);
-      cpu.load_and_run_program(vec![0xa5, 0x10, 0x00]);
+      cpu.memory.write_mem_u8(0x10, 0xF1); // this should set off the negative flag
+      cpu.memory.write_mem_u8(0x11, 0x00); // this should set off the zero flag
 
-      assert_eq!(cpu.accumulator, 0x55);
+      // test the negative flag
+      cpu.load_and_run_program(vec![0xa5, 0x10, 0x00]);
+      assert_eq!(cpu.accumulator, 0xF1);
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::Negative), true);
+
+      // test the positive flag
+      cpu.load_and_run_program(vec![0xa5, 0x11, 0x00]);
+      assert_eq!(cpu.accumulator, 0x00);
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::ZeroFlag), true);
+    }
+
+    #[test]
+    fn cpu_adc_from_memory() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x10, 0x05); // this should set off the zero flag
+
+      cpu.load_and_run_program(vec![0x65, 0x10, 0x65, 0x10]);
+      assert_eq!(cpu.accumulator, 0x10);
+
+      // test the overflow
+      cpu.memory.write_mem_u8(0x12, 0xFE);
+      cpu.memory.write_mem_u8(0x13, 0x02);
+
+      cpu.load_and_run_program(vec![0x65, 0x12, 0x65, 0x13]);
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::Overflow), true);
     }
 }

@@ -1,9 +1,10 @@
 
-use std::{collections::HashMap, ops::Add};
+use std::collections::HashMap;
 
 use crate::cpu::cpu::AddressingMode;
 use lazy_static::lazy_static;
 
+#[derive(Debug)]
 pub struct OpCode
 {
     pub code: u8,
@@ -23,6 +24,10 @@ impl OpCode {
             addressing_mode,
         }
     }
+
+    pub fn to_string(&self) -> String {
+        return format!("inst: {}, code: {}, addr: {:?}", self.mnemonic, self.code, self.addressing_mode);
+    }
 }
 
 lazy_static! {
@@ -36,6 +41,16 @@ lazy_static! {
         OpCode::new(0xA1, "LDA", 2, 6, AddressingMode::IndirectX),
         OpCode::new(0xB1, "LDA", 2, 5, AddressingMode::IndirectY), // +1 if page crossed
         
+        // adc - add with carry
+        OpCode::new(0x69, "ADC", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x65, "ADC", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x75, "ADC", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0x6D, "ADC", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x7D, "ADC", 3, 4, AddressingMode::AbsoluteX), // +1 if page crossed
+        OpCode::new(0x79, "ADC", 3, 4, AddressingMode::AbsoluteY), // +1 if page crossed
+        OpCode::new(0x61, "ADC", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0x71, "ADC", 2, 5, AddressingMode::IndirectY), // +1 if page crossed
+
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
         OpCode::new(0xAA, "TAX", 1, 2, AddressingMode::NoneAddressing),
     ];

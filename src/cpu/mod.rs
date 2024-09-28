@@ -1,6 +1,6 @@
 
 /// Defines all the includes to work the CPU of the emulator
-mod cpu;
-mod processor_status;
-mod memory_map;
-mod opcodes;
+pub mod cpu;
+pub mod processor_status;
+pub mod memory_map;
+pub mod opcodes;
