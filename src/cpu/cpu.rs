@@ -1,6 +1,10 @@
 
+
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
+use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
+
+/// Defines the state of a 6502 CPU
 struct CPU
 {
   /// Points to the next program to be executed
@@ -18,9 +22,9 @@ struct CPU
   /// same as x
   pub index_register_y: u8,
 
-  /// Holds flags for when opeations are done
-  /// We might have a file for defining processer status flags
-  pub processor_status: u8,
+  /// Holds flags for when operations are done
+  /// this u8 is controlled with the processor status flags enum
+  pub processor_status: ProcessorStatus,
 }
 
 impl CPU
@@ -33,7 +37,7 @@ impl CPU
       accumulator: 0,
       index_register_x: 0,
       index_register_y: 0,
-      processor_status: 0
+      processor_status: ProcessorStatus(ProcessorStatusFlags::Default as u8)
     }
   }
 }
