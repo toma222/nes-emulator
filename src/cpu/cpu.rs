@@ -34,15 +34,9 @@ pub struct CPU
   memory: MemoryMap
 }
 
-// These are the diffrent ways that an instruction can address data
+// These are the different ways that an instruction can address data
 pub enum AddressingMode
 {
-    /// The address is implied by the instruction
-    Implicit,
-
-    /// operates on the accumulator
-    Accumulate,
-
     /// just an 8 bit constant for the address
     Immediate,
     
@@ -56,9 +50,6 @@ pub enum AddressingMode
     /// same as zero page, but it adds whatever is in the y register to the address
     ZeroPageY,
 
-    /// contain a signed 8 bit relative offset which is added to the program counter.
-    Relative,
-
     /// Contain the full 16 byte address
     Absolute,
 
@@ -70,13 +61,13 @@ pub enum AddressingMode
 
     /// its a 16 bit address that identifies the location of the least significant byte
     /// of another 16 bit memory address which is the real target of the instruction
-    Indirect,
+    /// then adds the x register
+    IndirectX,
 
-    /// same as indirect but we add the x register
-    IndexedIndirect,
-
-    /// same as indirect but we add the y register
-    IndirectIndexed,
+    /// its a 16 bit address that identifies the location of the least significant byte
+    /// of another 16 bit memory address which is the real target of the instruction
+    /// then adds the y register
+    IndirectY,
 }
 
 impl CPU
@@ -94,44 +85,34 @@ impl CPU
     }
   }
 
-  fn read_mem(&mut self, mode: AddressingMode, loc: u16) -> u16
+  /// Assumes the next part of the program counter is an address
+  /// this function gets the address from that address using the specified addressing mode
+  fn get_operand_address(&self, mode: AddressingMode) -> u16
   {
     match mode {
-      AddressingMode::ZeroPage => { self.memory.read_mem_u8(loc) as u16 }
-      AddressingMode::ZeroPageX => { self.memory.read_mem_u8(loc + self.index_register_x as u16) as u16 }
-      AddressingMode::ZeroPageY => { self.memory.read_mem_u8(loc + self.index_register_y as u16) as u16 }
-      AddressingMode::Absolute => { self.memory.read_mem_u16(loc) }
-      AddressingMode::AbsoluteX => { self.memory.read_mem_u16(loc + self.index_register_x as u16) }
-      AddressingMode::AbsoluteY => { self.memory.read_mem_u16(loc + self.index_register_y as u16) }
-      AddressingMode::Indirect => { 
-          let mem_parts = [
-              self.memory.read_mem_u8(loc),
-              self.memory.read_mem_u8(loc+1)
-          ];
+        AddressingMode::Immediate => self.program_counter,
+        AddressingMode::ZeroPage => self.memory.read_mem_u8(self.program_counter) as u16,
+        AddressingMode::ZeroPageX => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x) as u16,
+        AddressingMode::ZeroPageY => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_y) as u16,
+        AddressingMode::Absolute => self.memory.read_mem_u16(self.program_counter),
+        AddressingMode::AbsoluteX => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_x as u16),
+        AddressingMode::AbsoluteY => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_y as u16),
+        AddressingMode::IndirectX => {
+          let ptr = self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x);
+          let lo = self.memory.read_mem_u8(ptr as u16);
+          let hi = self.memory.read_mem_u8(ptr.wrapping_add(1) as u16);
+          (hi as u16) << 8 | (lo as u16)
+        }
+        AddressingMode::IndirectY => {
+          let base = self.memory.read_mem_u8(self.program_counter);
 
-          let mut mem_parts_ref = &mem_parts[..];
-          mem_parts_ref.read_u16::<LittleEndian>().unwrap_or_default()
-      }
-      AddressingMode::IndexedIndirect => {
-          let mem_parts = [
-            self.memory.read_mem_u8(loc + self.index_register_x as u16),
-            self.memory.read_mem_u8(1 + loc + self.index_register_x as u16)
-          ];
-
-          let mut mem_parts_ref = &mem_parts[..];
-          mem_parts_ref.read_u16::<LittleEndian>().unwrap_or_default()
-      }
-      AddressingMode::IndirectIndexed => {
-          let mem_parts = [
-            self.memory.read_mem_u8(loc + self.index_register_y as u16),
-            self.memory.read_mem_u8(1 + loc + self.index_register_y as u16)
-          ];
-
-          let mut mem_parts_ref = &mem_parts[..];
-          mem_parts_ref.read_u16::<LittleEndian>().unwrap_or_default()
-      }
-      _ => return 0
-  }
+          let lo = self.memory.read_mem_u8(base as u16);
+          let hi = self.memory.read_mem_u8((base as u8).wrapping_add(1) as u16);
+          let deref_base = (hi as u16) << 8 | (lo as u16);
+          let deref = deref_base.wrapping_add(self.index_register_y as u16);
+          deref
+        }
+    }
   }
 }
 
@@ -143,5 +124,9 @@ mod tests {
     fn cpu_new() {
         let cpu = CPU::new();
         assert_eq!(cpu.index_register_x, 0);
+    }
+
+    fn cpu_address_immediate() {
+      let cpu = CPU::new();
     }
 }

@@ -40,14 +40,9 @@ impl MemoryMap
             self.memory[loc as usize],
             self.memory[(loc + 1) as usize]
         ];
-
+        
         let mut mem_parts_ref = &mem_parts[..];
-        match mem_parts_ref.read_u16::<LittleEndian>() {
-            Ok(a) => return a,
-            Err(_) => {
-                panic!("read_16::<LittleEndian> returned error");
-            }
-        }
+        return mem_parts_ref.read_u16::<LittleEndian>().unwrap_or_default();
     }
 
     pub fn write_mem_u16(&mut self, loc: u16, data: u16) {
