@@ -1,0 +1,42 @@
+
+use std::ops::Add;
+
+use crate::cpu::cpu::AddressingMode;
+use lazy_static::lazy_static;
+
+pub struct OpCode
+{
+    code: u8,
+    mnemonic: &'static str,
+    bytes: u8,
+    cycles: u8,
+    addressing_mode: AddressingMode,
+}
+
+impl OpCode {
+    fn new(code: u8, mnemonic: &'static str, bytes: u8, cycles: u8, addressing_mode: AddressingMode) -> OpCode {
+        OpCode {
+            code,
+            mnemonic,
+            bytes,
+            cycles,
+            addressing_mode,
+        }
+    }
+}
+
+lazy_static! {
+    static ref OPCODE_ARRAY: Vec<OpCode> = vec![
+        OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xA5, "LDA", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xB5, "LDA", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0xAD, "LDA", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xBD, "LDA", 3, 4, AddressingMode::AbsoluteX), // +1 if page crossed
+        OpCode::new(0xB9, "LDA", 3, 4, AddressingMode::AbsoluteY), // +1 if page crossed
+        OpCode::new(0xA1, "LDA", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0xB1, "LDA", 2, 5, AddressingMode::IndirectY), // +1 if page crossed
+        
+        OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
+        OpCode::new(0xAA, "TAX", 1, 2, AddressingMode::NoneAddressing),
+    ];
+}

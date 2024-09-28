@@ -35,8 +35,11 @@ pub struct CPU
 }
 
 // These are the different ways that an instruction can address data
+#[derive(Debug)]
 pub enum AddressingMode
 {
+    NoneAddressing,
+
     /// just an 8 bit constant for the address
     Immediate,
     
@@ -90,28 +93,32 @@ impl CPU
   fn get_operand_address(&self, mode: AddressingMode) -> u16
   {
     match mode {
-        AddressingMode::Immediate => self.program_counter,
-        AddressingMode::ZeroPage => self.memory.read_mem_u8(self.program_counter) as u16,
-        AddressingMode::ZeroPageX => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x) as u16,
-        AddressingMode::ZeroPageY => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_y) as u16,
-        AddressingMode::Absolute => self.memory.read_mem_u16(self.program_counter),
-        AddressingMode::AbsoluteX => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_x as u16),
-        AddressingMode::AbsoluteY => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_y as u16),
-        AddressingMode::IndirectX => {
-          let ptr = self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x);
-          let lo = self.memory.read_mem_u8(ptr as u16);
-          let hi = self.memory.read_mem_u8(ptr.wrapping_add(1) as u16);
-          (hi as u16) << 8 | (lo as u16)
-        }
-        AddressingMode::IndirectY => {
-          let base = self.memory.read_mem_u8(self.program_counter);
+      AddressingMode::Immediate => self.program_counter,
+      AddressingMode::ZeroPage => self.memory.read_mem_u8(self.program_counter) as u16,
+      AddressingMode::ZeroPageX => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x) as u16,
+      AddressingMode::ZeroPageY => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_y) as u16,
+      AddressingMode::Absolute => self.memory.read_mem_u16(self.program_counter),
+      AddressingMode::AbsoluteX => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_x as u16),
+      AddressingMode::AbsoluteY => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_y as u16),
+      AddressingMode::IndirectX => {
+        let ptr = self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x);
+        let lo = self.memory.read_mem_u8(ptr as u16);
+        let hi = self.memory.read_mem_u8(ptr.wrapping_add(1) as u16);
+        (hi as u16) << 8 | (lo as u16)
+      }
+      AddressingMode::IndirectY => {
+        let base = self.memory.read_mem_u8(self.program_counter);
 
-          let lo = self.memory.read_mem_u8(base as u16);
-          let hi = self.memory.read_mem_u8((base as u8).wrapping_add(1) as u16);
-          let deref_base = (hi as u16) << 8 | (lo as u16);
-          let deref = deref_base.wrapping_add(self.index_register_y as u16);
-          deref
-        }
+        let lo = self.memory.read_mem_u8(base as u16);
+        let hi = self.memory.read_mem_u8((base as u8).wrapping_add(1) as u16);
+        let deref_base = (hi as u16) << 8 | (lo as u16);
+        let deref = deref_base.wrapping_add(self.index_register_y as u16);
+        deref
+      }
+
+      AddressingMode::NoneAddressing => {
+        panic!("mode {:?} is not supported", mode);
+      }
     }
   }
 

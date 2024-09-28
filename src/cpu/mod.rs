@@ -3,3 +3,4 @@
 mod cpu;
 mod processor_status;
 mod memory_map;
+mod opcodes;
