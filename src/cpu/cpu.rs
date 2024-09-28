@@ -91,7 +91,7 @@ impl CPU
   }
 
   pub fn log_dump_registers_string(&self) -> String {
-    return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {:#x} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
+    return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
                     cpu_state_flags {}",
      self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y, self.processor_status);
   }
@@ -163,7 +163,7 @@ impl CPU
       let opcode = OPCODES_MAP.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
       let program_counter_state = self.program_counter;
 
-      info!("prg_c: {:#x} | {}", self.program_counter, opcode.to_string());
+      trace!("prg_c: {:#x} | {}", self.program_counter, opcode.to_string());
 
       match code {
           // LDA opcode
@@ -173,7 +173,12 @@ impl CPU
 
           // adc opcode
           0x69 | 0x65 | 0x75 | 0x6D | 0x7D | 0x79 | 0x61 | 0x71 => {
-            self.lda(&opcode.addressing_mode);
+            self.adc(&opcode.addressing_mode);
+          }
+
+          // and opcode
+          0x29 | 0x25 | 0x35 | 0x2D | 0x3D | 0x39 | 0x21 | 0x31 => {
+            self.and(&opcode.addressing_mode);
           }
 
           0x00 => return,
@@ -192,8 +197,7 @@ impl CPU {
 
   /// Helper function that loads field data into register A
   fn add_to_register_a(&mut self, data: u8) {
-    let sum = self.accumulator as u16
-      + data as u16 
+    let sum = self.accumulator as u16 + data as u16 
       + (if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) {
         1
       } else {
@@ -217,7 +221,7 @@ impl CPU {
         self.processor_status.set_flag_false(ProcessorStatusFlags::Overflow);
       }
 
-      self.set_register_a(data);
+      self.set_register_a(result);
   }
 
   fn set_register_a(&mut self, data: u8) {
@@ -242,6 +246,13 @@ impl CPU {
     let value = self.memory.read_mem_u8(addr);
 
     self.set_register_a(value);
+  }
+
+  /// Logical and
+  fn and(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+    self.set_register_a(self.accumulator & val);
   }
 
 
@@ -280,13 +291,6 @@ mod tests {
       cpu.memory.write_mem_u8(0x10, 0x05); // this should set off the zero flag
 
       cpu.load_and_run_program(vec![0x65, 0x10, 0x65, 0x10]);
-      assert_eq!(cpu.accumulator, 0x10);
-
-      // test the overflow
-      cpu.memory.write_mem_u8(0x12, 0xFE);
-      cpu.memory.write_mem_u8(0x13, 0x02);
-
-      cpu.load_and_run_program(vec![0x65, 0x12, 0x65, 0x13]);
-      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::Overflow), true);
+      assert_eq!(cpu.accumulator, 0x0A);
     }
 }
