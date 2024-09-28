@@ -1,8 +1,11 @@
+use core::fmt;
+
 
 /// These is an abstraction for the process status register
 /// The process status register is defined in the CPU class
 /// and changes depending on the operation last preformed
-/// 
+#[derive(Debug)]
+#[repr(u8)]
 pub enum ProcessorStatusFlags
 {
     /// just 0, used for initialization
@@ -39,8 +42,34 @@ pub enum ProcessorStatusFlags
 /// Wrapper for a u8 with bit flag functions that uses the ProcessorStatusFlags enum
 pub struct ProcessorStatus (pub u8);
 
-impl ProcessorStatus {
 
+impl fmt::Display for ProcessorStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        
+        let ProcessorStatus(status) = self;
+        for i in 0u8..8 {
+            let flag = 1 << i;
+            if status & flag != 0 {
+                match flag {
+                    0b00000000 => write!(f, "").unwrap_or_default(),
+                    0b00000001 => write!(f, "CarryFlag, ").unwrap_or_default(),
+                    0b00000010 => write!(f, "ZeroFlag").unwrap_or_default(),
+                    0b00000100 => write!(f, "InterruptDisable, ").unwrap_or_default(),
+                    0b00001000 => write!(f, "DecimalMode, ").unwrap_or_default(),
+                    0b00010000 => write!(f, "BreakCommand, ").unwrap_or_default(),
+                    0b00100000 => write!(f, "BreakCommand2, ").unwrap_or_default(),
+                    0b01000000 => write!(f, "Overflow, ").unwrap_or_default(),
+                    0b10000000 => write!(f, "Negative, ").unwrap_or_default(),
+                    _ => panic!("Invalid flags"),
+                }
+            }
+        }
+
+        return Ok(());
+    }
+}
+
+impl ProcessorStatus {
     pub fn update_zero_and_negative_flags(&mut self, value: u8) {
         if value == 0 {
             self.set_flag_true(ProcessorStatusFlags::ZeroFlag);

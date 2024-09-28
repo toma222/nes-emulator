@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use crate::cpu::cpu::AddressingMode;
 use lazy_static::lazy_static;
 
+use std::fmt::Write;
+
 #[derive(Debug)]
 pub struct OpCode
 {
@@ -26,7 +28,7 @@ impl OpCode {
     }
 
     pub fn to_string(&self) -> String {
-        return format!("inst: {}, code: {}, addr: {:?}", self.mnemonic, self.code, self.addressing_mode);
+        return format!("inst: {}, code: {:#x}, addr: {:?}", self.mnemonic, self.code, self.addressing_mode);
     }
 }
 

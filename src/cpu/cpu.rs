@@ -2,7 +2,7 @@
 
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
-use log::trace;
+use log::{info, trace};
 
 use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
 use crate::cpu::memory_map::MemoryMap;
@@ -33,7 +33,7 @@ pub struct CPU
   pub processor_status: ProcessorStatus,
 
 
-  memory: MemoryMap
+  pub memory: MemoryMap
 }
 
 // These are the different ways that an instruction can address data
@@ -88,6 +88,12 @@ impl CPU
       processor_status: ProcessorStatus(ProcessorStatusFlags::Default as u8),
       memory: MemoryMap::new()
     }
+  }
+
+  pub fn log_dump_registers_string(&self) -> String {
+    return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {:#x} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
+                    cpu_state_flags {}",
+     self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y, self.processor_status);
   }
 
   /// Assumes the next part of the program counter is an address
@@ -157,7 +163,7 @@ impl CPU
       let opcode = OPCODES_MAP.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
       let program_counter_state = self.program_counter;
 
-      trace!("prg_c: {:02X?} | {:?}", self.program_counter, opcode);
+      info!("prg_c: {:#x} | {}", self.program_counter, opcode.to_string());
 
       match code {
           // LDA opcode
