@@ -17,7 +17,12 @@ pub struct CPU
   pub program_counter: u16,
 
   /// Points to a 256 byte stack located between 0x0100 and 0x01FF
-  pub stack_pointer: u8,
+  /// Starts at 0x01FF and decreases down
+  pub stack_pointer: u16,
+
+  /// This is the offset that we SUBTRACT ( the stack moves DOWN ) 
+  /// from the stack pointer in order to find were to place the next byte of memory
+  stack_base: u8,
 
   /// Used for arethmetic operations
   pub accumulator: u8,
@@ -70,6 +75,10 @@ pub enum AddressingMode
     /// Adds the 16 byte address with the y register
     AbsoluteY,
 
+    /// Only the jmp instruction uses this
+    /// it points to a least sig byte that is used to identify a 16 bit address
+    Indirect,
+
     /// its a 16 bit address that identifies the location of the least significant byte
     /// of another 16 bit memory address which is the real target of the instruction
     /// then adds the x register
@@ -87,7 +96,8 @@ impl CPU
   {
     return CPU{
       program_counter: 0,
-      stack_pointer: 0,
+      stack_pointer: 0x01FF,
+      stack_base: 0,
       accumulator: 0,
       index_register_x: 0,
       index_register_y: 0,
@@ -115,6 +125,12 @@ impl CPU
       AddressingMode::Absolute => self.memory.read_mem_u16(self.program_counter),
       AddressingMode::AbsoluteX => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_x as u16),
       AddressingMode::AbsoluteY => self.memory.read_mem_u16(self.program_counter).wrapping_add(self.index_register_y as u16),
+      AddressingMode::Indirect => {
+        let ptr = self.memory.read_mem_u8(self.program_counter);
+        let lo = self.memory.read_mem_u8(ptr as u16);
+        let hi = self.memory.read_mem_u8(ptr.wrapping_add(1) as u16);
+        (hi as u16) << 8 | (lo as u16)
+      }
       AddressingMode::IndirectX => {
         let ptr = self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x);
         let lo = self.memory.read_mem_u8(ptr as u16);
@@ -192,13 +208,27 @@ impl CPU
           0x90 => {
             self.bcc();
           }
-
+          
+          // Branch if flag set/not set crap
           0xB0 => self.bcs(),
           0xF0 => self.beq(),
           0xD0 => self.bne(),
           0x10 => self.bpl(),
           0x30 => self.bmi(),
-          
+          0x50 => self.bvc(),
+          0x70 => self.bvs(),
+
+          // clear flags
+          0x17 => self.processor_status.set_flag_false(ProcessorStatusFlags::CarryFlag),
+          0xD8 => self.processor_status.set_flag_false(ProcessorStatusFlags::DecimalMode),
+          0x58 => self.processor_status.set_flag_false(ProcessorStatusFlags::InterruptDisable),
+          0xB8 => self.processor_status.set_flag_false(ProcessorStatusFlags::Overflow),
+
+          // set flags
+          0x38 => self.processor_status.set_flag_true(ProcessorStatusFlags::CarryFlag),
+          0xF8 => self.processor_status.set_flag_true(ProcessorStatusFlags::DecimalMode),
+          0x78 => self.processor_status.set_flag_true(ProcessorStatusFlags::InterruptDisable),
+
           // asl
           0x0A => {
             self.asl_acc();
@@ -213,6 +243,30 @@ impl CPU
           0x06 | 0x16 | 0x0E | 0x1E => {
             self.asl(&opcode.addressing_mode);
           }
+          
+          // cmp
+          0xC9 | 0xC5 | 0xD5 | 0xCD | 0xDD | 0xD9 | 0xC1 | 0xD1 => self.cmp(&opcode.addressing_mode),
+
+          // cmx
+          0xE0 | 0xE4 | 0xEC => self.cpx(&opcode.addressing_mode),
+
+          // cmy
+          0xC0 | 0xC4 | 0xCC => self.cpy(&opcode.addressing_mode),
+
+          // dec
+          0xC6 | 0xD6 | 0xCE | 0xDE => self.dec(&opcode.addressing_mode), // from point in memory
+          0xCA => self.index_register_x -= 1, // from x
+          0x88 => self.index_register_y -= 1, // from y
+
+          // EOR
+          0x49 | 0x45 | 0x55 | 0x4D | 0x5D | 0x59 | 0x41 | 0x51 => self.eor(&opcode.addressing_mode),
+
+          // INC
+          0xE6 | 0xF6 | 0xEE | 0xFE => self.inc(&opcode.addressing_mode),
+          0xE7 => self.index_register_x += 1,
+          0xC7 => self.index_register_y += 1,
+
+          0x4C | 0x6C => self.jmp(&opcode.addressing_mode),
 
           0x00 => return,
           _ => todo!()
@@ -227,6 +281,17 @@ impl CPU
 }
 
 impl CPU {
+
+  fn push_stack(&mut self, data: u8) {
+    self.memory.write_mem_u8(self.stack_pointer + self.stack_base as u16, data);
+    self.stack_base -= 1;
+  }
+
+  fn pop_stack(&mut self) -> u8 {
+    let val = self.memory.read_mem_u8(self.stack_pointer + self.stack_base as u16);
+
+    return val;
+  }
 
   /// Helper function that loads field data into register A
   fn add_to_register_a(&mut self, data: u8) {
@@ -368,6 +433,96 @@ impl CPU {
     self.processor_status.set_flag(ProcessorStatusFlags::Overflow, (res >> 7 & 1) != 0); // bit 6
   }
 
+  /// Branch if overflow clear
+  fn bvc(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::Overflow) == false {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Branch if overflow set
+  fn bvs(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::Overflow) == true {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// This is a helper function that sets the flags for a comparison operation between u8 a and u8 b
+  /// field a is the source and field b is the integer you are comparing to
+  fn set_compare_flags(&mut self, a: u8, b: u8) {
+    if a < b {
+      self.processor_status.set_flag_false(ProcessorStatusFlags::ZeroFlag);
+      self.processor_status.set_flag_false(ProcessorStatusFlags::CarryFlag);
+      self.processor_status.set_flag(ProcessorStatusFlags::Negative, (a >> 7 & 1) != 0);
+    } else if a == b {
+      self.processor_status.set_flag_true(ProcessorStatusFlags::ZeroFlag);
+      self.processor_status.set_flag_true(ProcessorStatusFlags::CarryFlag);
+      self.processor_status.set_flag_false(ProcessorStatusFlags::Negative);
+    }else{
+      self.processor_status.set_flag_false(ProcessorStatusFlags::ZeroFlag);
+      self.processor_status.set_flag_true(ProcessorStatusFlags::CarryFlag);
+      self.processor_status.set_flag(ProcessorStatusFlags::Negative, (a >> 7 & 1) != 0);
+    }
+  }
+
+  /// Compares the value stored in memory with the value in the accumulator
+  /// if A < mem it sets Z and C flags are zero, and N is the 7th bit of A
+  /// if A = mem then Z and C are ones
+  /// if A > mem then Z is zero and C is one, and N is the 7th bit of A
+  fn cmp(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+
+    self.set_compare_flags(self.accumulator, val);
+  }
+
+  /// same as cmp but compares the address to the x register
+  fn cpx(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+
+    self.set_compare_flags(self.index_register_x, val);
+  }
+  
+  /// same as cmp but compares the address to the y register
+  fn cpy(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+
+    self.set_compare_flags(self.index_register_y, val);
+  }
+
+  fn dec(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr).wrapping_sub(1);
+
+    self.memory.write_mem_u8(addr, val);
+    self.processor_status.update_zero_and_negative_flags(val);
+  }
+
+  fn inc(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr).wrapping_add(1);
+
+    self.memory.write_mem_u8(addr, val);
+    self.processor_status.update_zero_and_negative_flags(val);
+  }
+
+  fn eor(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+
+    let xor_res = self.accumulator ^ val;
+    self.accumulator = xor_res;
+    self.processor_status.update_zero_and_negative_flags(xor_res);
+  }
+
+  fn jmp(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    self.program_counter = addr;
+  }
 }
 
 #[cfg(test)]
@@ -413,5 +568,52 @@ mod tests {
       cpu.load_and_run_program(vec![0xA9, 0xFF, 0x24, 0x11]);
 
       assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::Overflow), true);
+    }
+
+    #[test]
+    fn cpu_clear_set_flag_instructions() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x11, 0x00);
+      cpu.load_and_run_program(vec![0x38, 0xF8, 0x17, 0x00]);
+
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::DecimalMode), true);
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag), false);
+    }
+
+    #[test]
+    fn cpu_compare_instructions() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x11, 0x00);
+      cpu.load_and_run_program(vec![0xA9, 0x81, 0xC9, 0x02, 0x00]);
+
+      assert!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag));
+      assert!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::Negative));
+    }
+
+    #[test]
+    fn cpu_increment_decrement() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x11, 0x05);
+      cpu.load_and_run_program(vec![0xC6, 0x11, 0xC6, 0x11, 0xE6, 0x11]);
+  
+      assert_eq!(cpu.memory.read_mem_u8(0x11), 4);
+    }
+
+    #[test]
+    fn cpu_eor() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x11, 0x05);
+      cpu.load_and_run_program(vec![0xA9, 0b1111_1100, 0x49, 0b1111_1110, 0x00]);
+
+      assert_eq!(cpu.accumulator, 2);
+    }
+
+    #[test]
+    fn cpu_jmp() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x11, 0x05);
+      cpu.load_and_run_program(vec![0x4C, 0x06, 0x80, 0x00, 0x00, 0x00, 0xA9, 0x05, 0x00]);
+  
+      assert_eq!(cpu.accumulator, 5);
     }
 }
