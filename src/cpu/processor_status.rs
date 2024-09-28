@@ -38,6 +38,20 @@ pub struct ProcessorStatus (pub u8);
 
 impl ProcessorStatus {
 
+    pub fn update_zero_and_negative_flags(&mut self, value: u8) {
+        if value == 0 {
+            self.set_flag_true(ProcessorStatusFlags::ZeroFlag);
+        } else {
+            self.set_flag_false(ProcessorStatusFlags::ZeroFlag);
+        }
+
+        if value & 0b1000_0000 != 0 {
+            self.set_flag_true(ProcessorStatusFlags::Negative);
+        } else {
+            self.set_flag_false(ProcessorStatusFlags::Negative);
+        }
+    }
+
     /// Flips whatever flag you give it
     pub fn set_flag_true(&mut self, flag: ProcessorStatusFlags) {
         let ProcessorStatus(status) = self;
@@ -58,6 +72,12 @@ impl ProcessorStatus {
     {
         let ProcessorStatus(status) = self;
         return status & (flag as u8) != 0;
+    }
+
+    /// Sets them all back to zero
+    pub fn reset_flags(&mut self) {
+        let ProcessorStatus(status) = self;
+        *status = 0;
     }
 }
 
@@ -88,5 +108,27 @@ mod tests {
 
         status.toggle_flag(ProcessorStatusFlags::BreakCommand);
         assert_eq!(status.has_flag_set(ProcessorStatusFlags::BreakCommand), false);
+    }
+
+    #[test]
+    fn zero_flags() {
+        let mut status = ProcessorStatus(0);
+
+        status.update_zero_and_negative_flags(2);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::ZeroFlag), false);
+
+        status.update_zero_and_negative_flags(0);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::ZeroFlag), true);
+    }
+
+    #[test]
+    fn sign_flags() {
+        let mut status = ProcessorStatus(0);
+
+        status.update_zero_and_negative_flags(0b1000_0010); // this is the binary representation of a u8 with a sign bit (holds -2)
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::Negative), true);
+
+        status.update_zero_and_negative_flags(30);
+        assert_eq!(status.has_flag_set(ProcessorStatusFlags::Negative), false);
     }
 }

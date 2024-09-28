@@ -114,6 +114,43 @@ impl CPU
         }
     }
   }
+
+  /// Resets all the registers and gets the first instruction of the program
+  fn reset(&mut self)
+  {
+    self.index_register_x = 0;
+    self.index_register_y = 0;
+    self.processor_status.reset_flags();
+
+    // Get the start of the program from the program address
+    self.program_counter = self.memory.read_mem_u16(0xFFFC);
+  }
+
+  /// Loads the program at 0x8000 in the address space.
+  /// it then writes the first instruction (0x8000) to 0xFFFC.
+  /// 0xFFFC is were the program looks for the fist instruction of the program
+  fn load_program(&mut self, program: Vec<u8>) {
+    self.memory.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
+    self.memory.write_mem_u16(0xFFFC, 0x8000);
+  }
+
+  fn load_and_run_program(&mut self, program: Vec<u8>) {
+    self.load_program(program);
+    self.reset();
+    self.run_program();
+  }
+
+  fn run_program(&mut self) {
+    loop {
+      let code = self.memory.read_mem_u8(self.program_counter);
+      self.program_counter += 1; // consume the read instruction and point to the next
+
+      match code {
+          0x00 => return,
+          _ => todo!()
+      }
+    }
+  }
 }
 
 #[cfg(test)]

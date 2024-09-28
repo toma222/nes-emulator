@@ -1,8 +1,6 @@
 
 use byteorder::{ByteOrder, LittleEndian, ReadBytesExt}; // 1.3.4
 
-use crate::cpu::cpu::CPU;
-
 /// This defines the memory
 /// and has some implementations for managing that memory
 /// This holds the memory. All of it <3.
@@ -13,10 +11,8 @@ use crate::cpu::cpu::CPU;
 /// the power reset location and the BRK/interrupt request handler
 pub struct MemoryMap
 {
-    memory: [u8; 0xFFFF]
+    pub memory: [u8; 0xFFFF]
 }
-
-
 
 impl MemoryMap
 {
@@ -40,7 +36,7 @@ impl MemoryMap
             self.memory[loc as usize],
             self.memory[(loc + 1) as usize]
         ];
-        
+
         let mut mem_parts_ref = &mem_parts[..];
         return mem_parts_ref.read_u16::<LittleEndian>().unwrap_or_default();
     }
