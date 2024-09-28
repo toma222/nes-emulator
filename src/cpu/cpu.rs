@@ -2,9 +2,7 @@
 
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
-use std::ops::Add;
-
-use log::{info, trace};
+use log::trace;
 
 use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
 use crate::cpu::memory_map::MemoryMap;
@@ -46,6 +44,9 @@ pub enum AddressingMode
 
     /// The operation operated on the accumulator register
     Accumulator,
+
+    /// Relitave contains a signed 8 bit address that we increment the program counter with
+    Relative,
 
     /// just an 8 bit constant for the address
     Immediate,
@@ -107,6 +108,7 @@ impl CPU
   {
     match mode {
       AddressingMode::Immediate => self.program_counter,
+      AddressingMode::Relative => self.program_counter,
       AddressingMode::ZeroPage => self.memory.read_mem_u8(self.program_counter) as u16,
       AddressingMode::ZeroPageX => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x) as u16,
       AddressingMode::ZeroPageY => self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_y) as u16,
@@ -185,10 +187,25 @@ impl CPU
           0x29 | 0x25 | 0x35 | 0x2D | 0x3D | 0x39 | 0x21 | 0x31 => {
             self.and(&opcode.addressing_mode);
           }
+
+          // bcc
+          0x90 => {
+            self.bcc();
+          }
+
+          0xB0 => self.bcs(),
+          0xF0 => self.beq(),
+          0xD0 => self.bne(),
+          0x10 => self.bpl(),
+          0x30 => self.bmi(),
           
           // asl
           0x0A => {
             self.asl_acc();
+          }
+
+          0x24 | 0x2C => {
+            self.bit(&opcode.addressing_mode);
           }
 
           0x06 | 0x16 | 0x0E | 0x1E => {
@@ -243,7 +260,6 @@ impl CPU {
     self.processor_status.update_zero_and_negative_flags(self.accumulator);
   }
 
-
   /// Add with carry
   /// Adds the contents of a memory location to the accumulator with the carry bit
   /// if it overflows then we set the carry bit
@@ -287,6 +303,67 @@ impl CPU {
     self.set_register_a(res as u8);
   }
 
+  /// Branch carry if clear - if the carry flag is clear add the displacement
+  /// to the program counter to branch the program to a new location
+  fn bcc(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) == false {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Branch carry if set - if the carry flag is set add the displacement
+  /// to the program counter to branch the program to a new location
+  fn bcs(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) == true {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Branch if zero flag is set
+  fn beq(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::ZeroFlag) == true {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Branch if zero flag is not set
+  fn bne(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::ZeroFlag) == false {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Branch if positive
+  fn bpl(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::Negative) == true {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Branch if zero flag is not set
+  fn bmi(&mut self) {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::Negative) == false {
+      let addr: u8 = self.memory.read_mem_u8(self.program_counter); // gets the program counter
+      self.program_counter += addr as u16;
+    }
+  }
+
+  /// Preforms the and operation with the accumulator register
+  /// and the data at the address and updates the cpu flags accordingly
+  fn bit(&mut self, mode: &AddressingMode) {
+    let addr: u16 = self.get_operand_address(mode);
+    let res: u8 = self.accumulator & self.memory.read_mem_u8(addr);
+
+    if res == 0 { self.processor_status.set_flag_true(ProcessorStatusFlags::ZeroFlag); }
+
+    self.processor_status.set_flag(ProcessorStatusFlags::Overflow, (res >> 6 & 1) != 0); // bit 6
+    self.processor_status.set_flag(ProcessorStatusFlags::Negative, (res >> 7 & 1) != 0); // bit 6
+  }
 
 }
 

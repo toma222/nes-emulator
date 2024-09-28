@@ -11,9 +11,9 @@ fn main() {
     env_logger::init();
 
     let mut cpu = CPU::new();
-    // cpu.memory.write_mem_u8(0x10, 0xFF); // this should set off the negative flag
     cpu.memory.write_mem_u8(0x11, 0x01); // this should set off the zero flag
-    cpu.load_and_run_program(vec![0x06, 0x11, 0xa5, 0x11, 0x0A]);
+    cpu.load_and_run_program(vec![0x90, 0x03, 0x00, 0x00,
+                                  0x24, 0x11]);
 
     info!("{}", cpu.log_dump_registers_string());
 
