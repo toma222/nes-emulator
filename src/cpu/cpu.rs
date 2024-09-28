@@ -48,7 +48,7 @@ pub enum AddressingMode
     /// Relitave contains a signed 8 bit address that we increment the program counter with
     Relative,
 
-    /// just an 8 bit constant for the address
+    /// just an 8 bit constant as your parameter
     Immediate,
     
     /// 8 bit operand limiting it to the first 256 bytes of memory
@@ -203,11 +203,13 @@ impl CPU
           0x0A => {
             self.asl_acc();
           }
-
+          
+          // bit
           0x24 | 0x2C => {
             self.bit(&opcode.addressing_mode);
           }
 
+          // asl
           0x06 | 0x16 | 0x0E | 0x1E => {
             self.asl(&opcode.addressing_mode);
           }
@@ -357,12 +359,13 @@ impl CPU {
   /// and the data at the address and updates the cpu flags accordingly
   fn bit(&mut self, mode: &AddressingMode) {
     let addr: u16 = self.get_operand_address(mode);
-    let res: u8 = self.accumulator & self.memory.read_mem_u8(addr);
+    let mem: u8 = self.memory.read_mem_u8(addr);
+    let res: u8 = self.accumulator & mem;
 
     if res == 0 { self.processor_status.set_flag_true(ProcessorStatusFlags::ZeroFlag); }
 
-    self.processor_status.set_flag(ProcessorStatusFlags::Overflow, (res >> 6 & 1) != 0); // bit 6
-    self.processor_status.set_flag(ProcessorStatusFlags::Negative, (res >> 7 & 1) != 0); // bit 6
+    self.processor_status.set_flag(ProcessorStatusFlags::Negative, (res >> 6 & 1) != 0); // bit 6
+    self.processor_status.set_flag(ProcessorStatusFlags::Overflow, (res >> 7 & 1) != 0); // bit 6
   }
 
 }
@@ -401,5 +404,14 @@ mod tests {
 
       cpu.load_and_run_program(vec![0x65, 0x10, 0x65, 0x10]);
       assert_eq!(cpu.accumulator, 0x0A);
+    }
+
+    #[test]
+    fn cpu_bit() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x11, 0b1011_1111); // this should set off the overflow flag
+      cpu.load_and_run_program(vec![0xA9, 0xFF, 0x24, 0x11]);
+
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::Overflow), true);
     }
 }

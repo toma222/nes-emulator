@@ -47,6 +47,8 @@ impl fmt::Display for ProcessorStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         
         let ProcessorStatus(status) = self;
+        write!(f, "{:#010b} ", status).unwrap_or_default();
+
         for i in 0u8..8 {
             let flag = 1 << i;
             if status & flag != 0 {
