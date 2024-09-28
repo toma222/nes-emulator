@@ -3,9 +3,11 @@
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
 use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
+use crate::cpu::memory_map;
 
 /// Defines the state of a 6502 CPU
-struct CPU
+/// just a reminder that the CPU will store data little endian <3
+pub struct CPU
 {
   /// Points to the next program to be executed
   pub program_counter: u16,
@@ -25,6 +27,9 @@ struct CPU
   /// Holds flags for when operations are done
   /// this u8 is controlled with the processor status flags enum
   pub processor_status: ProcessorStatus,
+
+
+  memory: [u8; 0xFFFF]
 }
 
 impl CPU
@@ -37,7 +42,8 @@ impl CPU
       accumulator: 0,
       index_register_x: 0,
       index_register_y: 0,
-      processor_status: ProcessorStatus(ProcessorStatusFlags::Default as u8)
+      processor_status: ProcessorStatus(ProcessorStatusFlags::Default as u8),
+      memory: [0; 0xFFFF]
     }
   }
 }
