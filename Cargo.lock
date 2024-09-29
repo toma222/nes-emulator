@@ -163,7 +163,7 @@ dependencies = [
  "lazy_static",
  "log",
  "rand",
- "sdl3",
+ "sdl2",
 ]
 
 [[package]]
@@ -253,22 +253,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 
 [[package]]
-name = "sdl3"
-version = "0.5.0"
+name = "sdl2"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "041ee515e152266b6d4ade22db39b0e09486076d06e0eb7ad5cc707d4856ca4f"
+checksum = "3b498da7d14d1ad6c839729bd4ad6fc11d90a57583605f3b4df2cd709a9cd380"
 dependencies = [
  "bitflags",
  "lazy_static",
  "libc",
- "sdl3-sys",
+ "sdl2-sys",
 ]
 
 [[package]]
-name = "sdl3-sys"
-version = "0.0.6+sdl3-dev-2023-07-31"
+name = "sdl2-sys"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9846a96256cb800f754bef64805689a4c75b2a1a6d855064c10321075034673"
+checksum = "951deab27af08ed9c6068b7b0d05a93c91f0a8eb16b6b816a5e73452a43521d3"
 dependencies = [
  "cfg-if",
  "libc",

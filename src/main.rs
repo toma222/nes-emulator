@@ -1,15 +1,13 @@
 
 mod cpu;
 
-extern crate sdl3;
-
 use cpu::cpu::CPU;
 
 extern crate env_logger;
 pub use log::{debug, error, log_enabled, info, Level};
 use rand::Rng;
-use sdl3::pixels::PixelFormatEnum;
-use sdl3::{EventPump, keyboard::Keycode, event::Event};
+use sdl2::pixels::PixelFormatEnum;
+use sdl2::{EventPump, keyboard::Keycode, event::Event};
 
 fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
@@ -34,17 +32,17 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 }
 
-fn color(byte: u8) -> sdl3::pixels::Color {
+fn color(byte: u8) -> sdl2::pixels::Color {
     match byte {
-        0 => sdl3::pixels::Color::BLACK,
-        1 => sdl3::pixels::Color::WHITE,
-        2 | 9 => sdl3::pixels::Color::GREY,
-        3 | 10 => sdl3::pixels::Color::RED,
-        4 | 11 => sdl3::pixels::Color::GREEN,
-        5 | 12 => sdl3::pixels::Color::BLUE,
-        6 | 13 => sdl3::pixels::Color::MAGENTA,
-        7 | 14 => sdl3::pixels::Color::YELLOW,
-        _ => sdl3::pixels::Color::CYAN,
+        0 => sdl2::pixels::Color::BLACK,
+        1 => sdl2::pixels::Color::WHITE,
+        2 | 9 => sdl2::pixels::Color::GREY,
+        3 | 10 => sdl2::pixels::Color::RED,
+        4 | 11 => sdl2::pixels::Color::GREEN,
+        5 | 12 => sdl2::pixels::Color::BLUE,
+        6 | 13 => sdl2::pixels::Color::MAGENTA,
+        7 | 14 => sdl2::pixels::Color::YELLOW,
+        _ => sdl2::pixels::Color::CYAN,
     }
 }
 
@@ -66,10 +64,10 @@ fn read_screen_state(cpu: &CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
  }
 
 fn main() {
-    std::env::set_var("RUST_LOG", "trace");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
-    let sdl_context = sdl3::init().unwrap();
+    let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
         .window("Snake Game", (32.0 * 10.0) as u32, (32.0 * 10.0) as u32)
@@ -83,8 +81,6 @@ fn main() {
     let mut texture = creator
         .create_texture_target(PixelFormatEnum::RGB24, 32, 32).unwrap();
     
-
-
     let game_code = vec![
         0x20, 0x06, 0x06, 0x20, 0x38, 0x06, 0x20, 0x0d, 0x06, 0x20, 0x2a, 0x06, 0x60, 0xa9, 0x02, 0x85,
         0x02, 0xa9, 0x04, 0x85, 0x03, 0xa9, 0x11, 0x85, 0x10, 0xa9, 0x10, 0x85, 0x12, 0xa9, 0x0f, 0x85,
@@ -126,7 +122,7 @@ fn main() {
 
         // render screen state
         handle_user_input(cpu, &mut event_pump);
-        cpu.memory.write_mem_u8(0xfe, rng.gen_range(1..16));
+        cpu.memory.write_mem_u8(0xFE, rng.gen_range(0..16));
  
         if read_screen_state(cpu, &mut screen_state) {
             texture.update(None, &screen_state, 32 * 3).unwrap();
@@ -134,7 +130,7 @@ fn main() {
             canvas.present();
         }
  
-        ::std::thread::sleep(std::time::Duration::new(0, 70_000));
+        ::std::thread::sleep(std::time::Duration::new(0, 40_000));
     });
 
     info!("{}", cpu.log_dump_registers_string());
