@@ -111,7 +111,7 @@ impl CPU
     let stack_end = self.stack_pointer;
     let stack = &self.memory.memory[stack_begin as usize ..= stack_end as usize];
 
-    return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
+    return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {:#x} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
                     cpu_state_flags: {}
                     stack: {:#?}",
      self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y,
@@ -284,10 +284,51 @@ impl CPU
           0xC7 => self.index_register_y += 1,
 
           0x4C | 0x6C => self.jmp(&opcode.addressing_mode),
-
+          
+          // jump and return from subroutine
           0x20 => self.jsr(&AddressingMode::Absolute),
-
           0x60 => self.rts(),
+          
+          // left but shift
+          0x4A => self.lsr_acc(),
+
+          0x46 | 0x56 | 0x4E | 0x5E => self.lsr(&opcode.addressing_mode),
+
+          0xEA => continue,
+
+          0x09 | 0x05 | 0x15 | 0x0D | 0x1D | 0x19 | 0x01 | 0x11 => self.ora(&opcode.addressing_mode),
+          
+          0x2A => self.rol_acc(),
+          0x26 | 0x36 | 0x2E | 0x3E => self.rol(&opcode.addressing_mode),
+
+          0x6A => self.ror_acc(),
+          0x66 | 0x76 | 0x6E | 0x7E => self.ror(&opcode.addressing_mode),
+
+          // push the accumulator onto the stack
+          0x48 => self.push_stack(self.accumulator),
+
+          0x08 => { self.accumulator = self.pop_stack(); },
+
+          0x28 => { self.processor_status.0 = self.pop_stack(); },
+
+          0x40 => self.rti(),
+
+          0xE9 | 0xE5 | 0xF5 | 0xED | 0xFD | 0xF9 | 0xE1 | 0xF1 => self.sbc(&opcode.addressing_mode),
+          
+          // sta
+          0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => self.sta(&opcode.addressing_mode),
+
+          0x84 | 0x94 | 0x8C => self.sty(&opcode.addressing_mode),
+
+          0x86 | 0x96 | 0x8E => self.stx(&opcode.addressing_mode),
+
+          // transfer operations
+          0xAA => self.index_register_x = self.accumulator,
+          0xA8 => self.index_register_y = self.accumulator,
+          0xBA => self.index_register_x = self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16),
+          0x8A => self.accumulator = self.index_register_x,
+          0x9A => self.index_register_y = self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16),
+          0x98 => self.accumulator = self.index_register_y,
 
           0x00 => return,
           _ => todo!()
@@ -366,6 +407,17 @@ impl CPU {
     let value = self.memory.read_mem_u8(addr);
 
     self.add_to_register_a(value);
+  }
+
+  /// Subtract with carry
+  /// subtract the contents of memory location to the accumulator together with
+  /// the not of the carry bit
+  fn sbc(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let value = self.memory.read_mem_u8(addr);
+
+    // a - b = a + (-b)
+    self.add_to_register_a(!value + 1);
   }
 
   /// Loads a value into the a register
@@ -583,8 +635,110 @@ impl CPU {
   }
 
   /// used at the end of a subroutine to return from the subroutine
+  /// gets the return value from the stack
   fn rts(&mut self) {
     self.program_counter = u16::from_le_bytes([self.pop_stack(), self.pop_stack()]);;
+  }
+
+  /// preforms the logical shift right to the defined memory address
+  fn lsr(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+    let res: u16 = (val as u16) >> 1;
+    self.memory.write_mem_u8(addr, res as u8);
+
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, res > 0xFF);
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+  }
+
+  /// preforms the logical shift right to the accumulator register
+  fn lsr_acc(&mut self) {
+    let res: u16 = (self.accumulator as u16) >> 1;
+    self.accumulator = res as u8;
+    
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, res > 0xFF);
+  }
+
+  /// Logical Inclusive OR preformed on the accumulator using the contents of the address
+  fn ora(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let val = self.memory.read_mem_u8(addr);
+
+    self.accumulator |= val;
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+  }
+
+  /// shifts the bits in the accumulator register one place to the left
+  /// bit 0 is filled with the value of the carry flag, the old bit 7 becomes the carry flag
+  fn rol_acc(&mut self) {
+    let mut val = self.accumulator << 1;
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) == true { val |= 0b0000_0001; }
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, (self.accumulator >> 7 & 1) != 0);
+    self.accumulator = val;
+  }
+
+  /// shifts the bits at the memory location one place to the left
+  /// bit 0 is filled with the value of the carry flag, the old bit 7 becomes the carry flag
+  fn rol(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let mem_val = self.memory.read_mem_u8(addr);
+    let mut val = mem_val << 1;
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) == true { val |= 0b0000_0001; }
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, (mem_val >> 7 & 1) != 0);
+    self.memory.write_mem_u8(addr, val);
+  }
+
+  /// shifts the bits in the accumulator register one place to the right
+  /// bit 0 is filled with the value of the carry flag, the old bit 7 becomes the carry flag
+  fn ror_acc(&mut self) {
+    let mut val = self.accumulator >> 1;
+
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) == true { val |= 0b1000_0000; }
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, (self.accumulator >> 0 & 1) != 0);
+
+    self.accumulator = val;
+  }
+
+  /// shifts the bits at the memory location one place to the right
+  /// bit 0 is filled with the value of the carry flag, the old bit 7 becomes the carry flag
+  fn ror(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let mem_val = self.memory.read_mem_u8(addr);
+    let mut val = mem_val >> 1;
+
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::CarryFlag) == true { val |= 0b1000_0000; }
+    self.processor_status.set_flag(ProcessorStatusFlags::CarryFlag, (self.accumulator >> 0 & 1) != 0);
+
+    self.memory.write_mem_u8(addr, val);
+  }
+
+  /// return from interrupt; this instruction is called at the end of an interrupt
+  /// loop and pulls the processor flags from the stack and the program counter from the stack
+  fn rti(&mut self) {
+    let cpu_flags = self.pop_stack();
+    let program_counter = u16::from_le_bytes([self.pop_stack(), self.pop_stack()]);
+
+    self.processor_status.0 = cpu_flags;
+    self.program_counter = program_counter;
+  }
+
+  /// Loads memory into the a register
+  fn sta(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    self.memory.write_mem_u8(addr, self.accumulator);
+  }
+
+  /// Loads memory into the x register
+  fn stx(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    self.memory.write_mem_u8(addr, self.index_register_x);
+  }
+
+  /// Loads memory into the y register
+  fn sty(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    self.memory.write_mem_u8(addr, self.index_register_y);
   }
 }
 
@@ -678,5 +832,47 @@ mod tests {
       cpu.load_and_run_program(vec![0x4C, 0x06, 0x80, 0x00, 0x00, 0x00, 0xA9, 0x05, 0x00]);
   
       assert_eq!(cpu.accumulator, 5);
+    }
+
+    #[test]
+    fn cpu_ora() {
+      let mut cpu = CPU::new();
+      cpu.load_and_run_program(vec![0xA9, 0b0000_0010, 0x4A]);
+
+      assert_eq!(cpu.accumulator, 1);
+    }
+
+    #[test]
+    fn cpu_acc_stack() {
+      let mut cpu = CPU::new();
+      cpu.load_and_run_program(vec![0xA9, 0x01, 0x48, 0xA9, 0x02, 0x48, 0x28]);
+
+      assert_eq!(cpu.processor_status.has_flag_set(ProcessorStatusFlags::ZeroFlag), true);
+    }
+
+    #[test]
+    fn cpu_rotate_instructions() {
+      let mut cpu = CPU::new();
+      cpu.memory.write_mem_u8(0x02, 0xFF);
+      cpu.load_and_run_program(vec![0x26, 0x02, 0x66, 0x02]);
+  
+      assert_eq!(0xFF, cpu.memory.read_mem_u8(0x02));
+    }
+
+    #[test]
+    fn cpu_subtract() {
+      let mut cpu = CPU::new();
+      cpu.load_and_run_program(vec![0xA9, 0x01, 0xE9, 0x02]);
+
+      assert_eq!(0xFF, cpu.accumulator);
+    }
+
+    #[test]
+    fn cpu_transfer_operations() {
+      let mut cpu = CPU::new();
+      cpu.load_and_run_program(vec![0xA9, 0x05, 0x48, 0xBA, 0xAA]);
+
+      assert_eq!(cpu.accumulator, 5);
+      assert_eq!(cpu.index_register_x, 5);
     }
 }

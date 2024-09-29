@@ -4,8 +4,6 @@ use std::collections::HashMap;
 use crate::cpu::cpu::AddressingMode;
 use lazy_static::lazy_static;
 
-use std::fmt::Write;
-
 #[derive(Debug)]
 pub struct OpCode
 {
@@ -175,6 +173,86 @@ lazy_static! {
 
         // return from subroutine
         OpCode::new(0x60, "RTS", 1, 6, AddressingMode::NoneAddressing),
+
+        // Logical shift right
+        OpCode::new(0x4A, "LSR", 1, 2, AddressingMode::Accumulator),
+        OpCode::new(0x46, "LSR", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x56, "LSR", 2, 6, AddressingMode::ZeroPageX),
+        OpCode::new(0x4E, "LSR", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x5E, "LSR", 3, 7, AddressingMode::AbsoluteX),
+
+        // Logical Inclusive OR
+        OpCode::new(0x09, "ORA", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x05, "ORA", 2, 2, AddressingMode::ZeroPage),
+        OpCode::new(0x15, "ORA", 2, 2, AddressingMode::ZeroPageX),
+        OpCode::new(0x0D, "ORA", 3, 3, AddressingMode::Absolute),
+        OpCode::new(0x1D, "ORA", 3, 3, AddressingMode::AbsoluteX), // +1 if page crossed
+        OpCode::new(0x19, "ORA", 3, 3, AddressingMode::AbsoluteY), // +1 if page crossed
+        OpCode::new(0x01, "ORA", 2, 2, AddressingMode::IndirectX),
+        OpCode::new(0x11, "ORA", 2, 2, AddressingMode::IndirectY), // +1 if page crossed
+
+        OpCode::new(0x48, "PHA", 1, 3, AddressingMode::NoneAddressing), // +1 if page crossed
+
+        OpCode::new(0x08, "PHP", 1, 3, AddressingMode::NoneAddressing), // +1 if page crossed
+
+        OpCode::new(0x28, "PLP", 1, 3, AddressingMode::NoneAddressing), // +1 if page crossed
+
+        // Rotate left
+        OpCode::new(0x2A, "ROL", 1, 2, AddressingMode::Accumulator),
+        OpCode::new(0x26, "ROL", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x36, "ROL", 2, 6, AddressingMode::ZeroPageX),
+        OpCode::new(0x2E, "ROL", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x3E, "ROL", 3, 7, AddressingMode::AbsoluteX),
+
+        // Rotate right
+        OpCode::new(0x6A, "ROR", 1, 2, AddressingMode::Accumulator),
+        OpCode::new(0x66, "ROR", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x76, "ROR", 2, 6, AddressingMode::ZeroPageX),
+        OpCode::new(0x6E, "ROR", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x7E, "ROR", 3, 7, AddressingMode::AbsoluteX),
+
+        // Return from interrupt
+        OpCode::new(0x40, "RTI", 1, 6, AddressingMode::NoneAddressing),
+
+        // subtract with carry
+        OpCode::new(0xE9, "SBC", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xE5, "SBC", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xF5, "SBC", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0xED, "SBC", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xFD, "SBC", 3, 4, AddressingMode::AbsoluteX), // +1 if page crossed
+        OpCode::new(0xF9, "SBC", 3, 4, AddressingMode::AbsoluteY), // +1 if page crossed
+        OpCode::new(0xE1, "SBC", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0xF1, "SBC", 2, 5, AddressingMode::IndirectY), // +1 if page crossed
+
+        // store x in a memory address
+        OpCode::new(0x86, "STX", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x96, "STX", 2, 4, AddressingMode::ZeroPageY),
+        OpCode::new(0x8E, "STX", 3, 4, AddressingMode::Absolute),
+
+        // store y in a memory address
+        OpCode::new(0x84, "STY", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x94, "STY", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0x8C, "STY", 3, 4, AddressingMode::Absolute),
+
+        // store a in a memory address
+        OpCode::new(0x85, "STA", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x95, "STA", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0x8D, "STA", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x9D, "STA", 3, 5, AddressingMode::AbsoluteX), // +1 if page crossed
+        OpCode::new(0x99, "STA", 3, 5, AddressingMode::AbsoluteY), // +1 if page crossed
+        OpCode::new(0x81, "STA", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0x91, "STA", 2, 6, AddressingMode::IndirectY), // +1 if page crossed
+
+        // transfer operations
+        OpCode::new(0xAA, "TAX", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xA8, "TAY", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xBA, "TSX", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x8A, "TXA", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x9A, "TXS", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x98, "TYA", 1, 2, AddressingMode::NoneAddressing),
+
+        // no operation
+        OpCode::new(0xEA, "NOP", 1, 2, AddressingMode::NoneAddressing),
     ];
 
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {

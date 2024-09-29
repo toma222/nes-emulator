@@ -11,8 +11,7 @@ fn main() {
     env_logger::init();
 
     let mut cpu = CPU::new();
-    cpu.memory.write_mem_u8(0x11, 0x05);
-    cpu.load_and_run_program(vec![0x20, 0x06, 0x80, 0x00, 0x00, 0x00, 0xA9, 0x05, 0x60]);
+    cpu.load_and_run_program(vec![0xA9, 0x05, 0x48, 0xBA, 0xAA]);
 
     info!("{}", cpu.log_dump_registers_string());
 }
