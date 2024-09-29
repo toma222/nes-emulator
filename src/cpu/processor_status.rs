@@ -9,7 +9,7 @@ use core::fmt;
 pub enum ProcessorStatusFlags
 {
     /// just 0, used for initialization
-    Default =             0b00000000,
+    Default =             0b0010_0100,
 
     /// This flag is set if the last operation caused an overflow
     CarryFlag =           0b00000001,

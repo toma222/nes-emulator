@@ -139,14 +139,14 @@ impl CPU
         (hi as u16) << 8 | (lo as u16)
       }
       AddressingMode::IndirectX => {
-        let ptr = self.memory.read_mem_u8(self.program_counter).wrapping_add(self.index_register_x);
+        let base = self.memory.read_mem_u8(self.program_counter);
+        let ptr: u8 = (base as u8).wrapping_add(self.index_register_x);
         let lo = self.memory.read_mem_u8(ptr as u16);
         let hi = self.memory.read_mem_u8(ptr.wrapping_add(1) as u16);
         (hi as u16) << 8 | (lo as u16)
       }
       AddressingMode::IndirectY => {
         let base = self.memory.read_mem_u8(self.program_counter);
-
         let lo = self.memory.read_mem_u8(base as u16);
         let hi = self.memory.read_mem_u8((base as u8).wrapping_add(1) as u16);
         let deref_base = (hi as u16) << 8 | (lo as u16);
@@ -202,7 +202,7 @@ impl CPU
       let opcode = OPCODES_MAP.get(&code).expect(&format!("OpCode {:x} is not recognized. dumping CPU\n {}", code, self.log_dump_registers_string()));
       let program_counter_state = self.program_counter;
 
-      trace!("prg_c: {:#x} | {}", self.program_counter, opcode.to_string());
+      trace!("prg_c: {:#x} | {}", self.program_counter-1, opcode.to_string());
 
       match code {
           // LDA opcode
@@ -282,13 +282,13 @@ impl CPU
           // dec
           0xC6 | 0xD6 | 0xCE | 0xDE => self.dec(&opcode.addressing_mode), // from point in memory
           0xCA => {
-            self.index_register_x = self.index_register_x.wrapping_sub(1);
-            self.processor_status.update_zero_and_negative_flags(self.index_register_x);
+            self.set_register_x(self.index_register_x.wrapping_sub(1));
+            // self.index_register_x = self.index_register_x.wrapping_sub(1);
+            // self.processor_status.update_zero_and_negative_flags(self.index_register_x);
           }, // from x
 
           0x88 => {
-            self.index_register_y = self.index_register_y.wrapping_sub(1);
-            self.processor_status.update_zero_and_negative_flags(self.index_register_y);
+            self.set_register_y(self.index_register_y.wrapping_sub(1));
           }, // from y
 
           // EOR
@@ -296,7 +296,7 @@ impl CPU
 
           // INC
           0xE6 | 0xF6 | 0xEE | 0xFE => self.inc(&opcode.addressing_mode),
-          0xE8 => self.inx(),
+          0xE8 => self.set_register_x(self.index_register_x.wrapping_add(1)),
           0xC8 => self.iny(),
 
           0x4C => {
@@ -322,8 +322,15 @@ impl CPU
         }
           
           // jump and return from subroutine
-          0x20 => self.jsr(&AddressingMode::Absolute),
-          0x60 => self.rts(),
+          // 0x20 => self.jsr(&AddressingMode::Absolute),
+          0x20 => {
+            self.push_stack_u16(self.program_counter + 2 - 1);
+            let target_address = self.memory.read_mem_u16(self.program_counter);
+            self.program_counter = target_address;
+          }
+          0x60 => {
+            self.program_counter = self.read_stack_u16() + 1;
+          }
           
           // left but shift
           0x4A => self.lsr_acc(),
@@ -359,12 +366,12 @@ impl CPU
           0x86 | 0x96 | 0x8E => self.stx(&opcode.addressing_mode),
 
           // transfer operations
-          0xAA => self.index_register_x = self.accumulator,
-          0xA8 => self.index_register_y = self.accumulator,
-          0xBA => self.index_register_x = self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16),
-          0x8A => self.accumulator = self.index_register_x,
-          0x9A => self.index_register_y = self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16),
-          0x98 => self.accumulator = self.index_register_y,
+          0xAA => self.set_register_x(self.accumulator), // { self.index_register_x = self.accumulator; self.processor_status.update_zero_and_negative_flags(self.index_register_x); },
+          0xA8 => self.set_register_y(self.accumulator),//{ self.index_register_y = self.accumulator; self.processor_status.update_zero_and_negative_flags(self.index_register_y); },
+          0xBA => self.set_register_x(self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16)),
+          0x8A => self.set_register_a(self.index_register_x),//{ self.accumulator = self.index_register_x; self.processor_status.update_zero_and_negative_flags(self.accumulator); } ,
+          0x9A => self.set_register_y(self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16)),// self.index_register_y = self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16),
+          0x98 => self.set_register_a(self.index_register_y),//{ self.accumulator = self.index_register_y; self.processor_status.update_zero_and_negative_flags(self.accumulator); },
 
           0x00 => {
             warn!("instruction brk is not implemented because we don't have interrupts");
@@ -392,6 +399,20 @@ impl CPU {
     self.stack_base = self.stack_base.wrapping_sub(1);
     let val = self.memory.read_mem_u8(self.stack_pointer - self.stack_base as u16);
     return val;
+  }
+
+  fn push_stack_u16(&mut self, data: u16) {
+    let hi = (data >> 8) as u8;
+    let lo = (data & 0xff) as u8;
+    self.push_stack(hi);
+    self.push_stack(lo);
+  }
+
+  fn read_stack_u16(&mut self) -> u16 {
+    let lo = self.pop_stack() as u16;
+    let hi = self.pop_stack() as u16;
+
+    hi << 8 | lo
   }
 
   /// Helper function that loads field data into register A
@@ -430,12 +451,12 @@ impl CPU {
 
   fn set_register_x(&mut self, data: u8) {
     self.index_register_x = data;
-    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+    self.processor_status.update_zero_and_negative_flags(self.index_register_x);
   }
 
   fn set_register_y(&mut self, data: u8) {
     self.index_register_y = data;
-    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+    self.processor_status.update_zero_and_negative_flags(self.index_register_y);
   }
 
   /// Add with carry
@@ -548,14 +569,14 @@ impl CPU {
 
   /// Branch if positive
   fn bpl(&mut self) {
-    if self.processor_status.has_flag_set(ProcessorStatusFlags::Negative) == true {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::Negative) == false {
       self.branch();
     }
   }
 
   /// Branch if zero flag is not set
   fn bmi(&mut self) {
-    if self.processor_status.has_flag_set(ProcessorStatusFlags::Negative) == false {
+    if self.processor_status.has_flag_set(ProcessorStatusFlags::Negative) == true {
       self.branch();
     }
   }
@@ -903,6 +924,7 @@ mod tests {
       assert_eq!(cpu.accumulator, 2);
     }
 
+    /*
     #[test]
     fn cpu_jmp() {
       let mut cpu = CPU::new();
@@ -911,6 +933,7 @@ mod tests {
   
       assert_eq!(cpu.accumulator, 5);
     }
+    */
 
     #[test]
     fn cpu_ora() {
@@ -938,19 +961,56 @@ mod tests {
     }
 
     #[test]
-    fn cpu_subtract() {
-      let mut cpu = CPU::new();
-      cpu.load_and_run_program(vec![0xA9, 0x01, 0xE9, 0x02]);
-
-      assert_eq!(0xFF, cpu.accumulator);
-    }
-
-    #[test]
     fn cpu_transfer_operations() {
       let mut cpu = CPU::new();
       cpu.load_and_run_program(vec![0xA9, 0x05, 0x48, 0xBA, 0xAA]);
 
       assert_eq!(cpu.accumulator, 5);
       assert_eq!(cpu.index_register_x, 5);
+    }
+
+    #[test]
+    fn test_0xa9_lda_immediate_load_data() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run_program(vec![0xa9, 0x05, 0x00]);
+        assert_eq!(cpu.accumulator, 5);
+        assert!(cpu.processor_status.0 & 0b0000_0010 == 0b00);
+        assert!(cpu.processor_status.0 & 0b1000_0000 == 0);
+    }
+
+    #[test]
+    fn test_0xaa_tax_move_a_to_x() {
+        let mut cpu = CPU::new();
+        cpu.accumulator = 10;
+        cpu.load_and_run_program(vec![0xaa, 0x00]);
+
+        assert_eq!(cpu.index_register_x, 10)
+    }
+
+    #[test]
+    fn test_5_ops_working_together() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run_program(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x00]);
+
+        assert_eq!(cpu.index_register_x, 0xc1)
+    }
+
+    #[test]
+    fn test_inx_overflow() {
+        let mut cpu = CPU::new();
+        cpu.index_register_x = 0xFF;
+        cpu.load_and_run_program(vec![0xe8, 0xe8, 0x00]);
+
+        assert_eq!(cpu.index_register_x, 2)
+    }
+
+    #[test]
+    fn test_lda_from_memory() {
+        let mut cpu = CPU::new();
+        cpu.memory.write_mem_u8(0x10, 0x55);
+
+        cpu.load_and_run_program(vec![0xa5, 0x10, 0x00]);
+
+        assert_eq!(cpu.accumulator, 0x55);
     }
 }

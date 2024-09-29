@@ -64,7 +64,7 @@ fn read_screen_state(cpu: &CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
  }
 
 fn main() {
-    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("RUST_LOG", "trace");
     env_logger::init();
 
     let sdl_context = sdl2::init().unwrap();
@@ -118,7 +118,6 @@ fn main() {
         // update mem [0xFE] with new random number
 
         // read mem mapped screen state
-        
 
         // render screen state
         handle_user_input(cpu, &mut event_pump);
@@ -130,7 +129,7 @@ fn main() {
             canvas.present();
         }
  
-        ::std::thread::sleep(std::time::Duration::new(0, 40_000));
+        ::std::thread::sleep(std::time::Duration::new(0, 1_000));
     });
 
     info!("{}", cpu.log_dump_registers_string());

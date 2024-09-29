@@ -32,21 +32,16 @@ impl MemoryMap
     }
 
     pub fn read_mem_u16(&self, loc: u16) -> u16 {
-        let mem_parts = [
-            self.memory[loc as usize],
-            self.memory[(loc + 1) as usize]
-        ];
-
-        let mut mem_parts_ref = &mem_parts[..];
-        return mem_parts_ref.read_u16::<LittleEndian>().unwrap_or_default();
+        let lo = self.read_mem_u8(loc) as u16;
+        let hi = self.read_mem_u8(loc + 1) as u16;
+        (hi << 8) | (lo as u16)
     }
 
     pub fn write_mem_u16(&mut self, loc: u16, data: u16) {
-        let mut buffer = [0 as u8; 2];
-        LittleEndian::write_u16(&mut buffer, data);
-        
-        self.memory[loc as usize] = buffer[0];
-        self.memory[(loc + 1) as usize] = buffer[1];
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xff) as u8;
+        self.write_mem_u8(loc, lo);
+        self.write_mem_u8(loc + 1, hi);
     }
 }
 

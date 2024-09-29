@@ -44,7 +44,7 @@ lazy_static! {
         
         OpCode::new(0xA2, "LDX", 2, 2, AddressingMode::Immediate),
         OpCode::new(0xA6, "LDX", 2, 3, AddressingMode::ZeroPage),
-        OpCode::new(0xB6, "LDX", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0xB6, "LDX", 2, 4, AddressingMode::ZeroPageY),
         OpCode::new(0xAE, "LDX", 3, 4, AddressingMode::Absolute),
         OpCode::new(0xBE, "LDX", 3, 4, AddressingMode::AbsoluteY), // +1 if page crossed
 
