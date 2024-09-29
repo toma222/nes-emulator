@@ -92,7 +92,7 @@ lazy_static! {
         OpCode::new(0x70, "BVS", 2, 2, AddressingMode::Relative),
 
         // clearing flags
-        OpCode::new(0x17, "CLC", 1, 2, AddressingMode::NoneAddressing), // carry
+        OpCode::new(0x18, "CLC", 1, 2, AddressingMode::NoneAddressing), // carry
         OpCode::new(0xD8, "CLD", 1, 2, AddressingMode::NoneAddressing), // decimal
         OpCode::new(0x58, "CLI", 1, 2, AddressingMode::NoneAddressing), // interrupt
         OpCode::new(0xB8, "CLV", 1, 2, AddressingMode::NoneAddressing), // overflow
