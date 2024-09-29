@@ -186,8 +186,6 @@ impl CPU
   }
 
   pub fn run_program(&mut self) {
-    self.push_stack(0x0F);
-
     loop {
       let code = self.memory.read_mem_u8(self.program_counter);
       self.program_counter += 1; // consume the read instruction and point to the next
@@ -287,6 +285,10 @@ impl CPU
 
           0x4C | 0x6C => self.jmp(&opcode.addressing_mode),
 
+          0x20 => self.jsr(&AddressingMode::Absolute),
+
+          0x60 => self.rts(),
+
           0x00 => return,
           _ => todo!()
       }
@@ -307,8 +309,8 @@ impl CPU {
   }
 
   fn pop_stack(&mut self) -> u8 {
+    self.stack_base = self.stack_base.wrapping_sub(1);
     let val = self.memory.read_mem_u8(self.stack_pointer - self.stack_base as u16);
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     return val;
   }
 
@@ -571,22 +573,18 @@ impl CPU {
   /// stack and then sets the program counter to the target memory address
   fn jsr(&mut self, mode: &AddressingMode) {
     let addr = self.get_operand_address(mode);
-    let lo = self.program_counter as u8;
-    let hi = (self.program_counter >> 8) as u8;
-    self.push_stack(hi);
-    self.push_stack(lo);
+
+    let bytes = (self.program_counter + 2).to_le_bytes();
+
+    self.push_stack(bytes[1]);
+    self.push_stack(bytes[0]);
 
     self.program_counter = addr;
   }
 
   /// used at the end of a subroutine to return from the subroutine
   fn rts(&mut self) {
-    let lo = self.pop_stack();
-    let hi = self.pop_stack();
-
-    let jmp_to = (hi as u16) << 8 | (lo as u16);
-
-    self.program_counter = jmp_to;
+    self.program_counter = u16::from_le_bytes([self.pop_stack(), self.pop_stack()]);;
   }
 }
 
