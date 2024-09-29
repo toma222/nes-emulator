@@ -107,12 +107,16 @@ impl CPU
   }
 
   pub fn log_dump_registers_string(&self) -> String {
+    let stack_begin = self.stack_pointer.wrapping_sub(self.stack_base as u16) + 1;
+    let stack_end = self.stack_pointer;
+    let stack = &self.memory.memory[stack_begin as usize ..= stack_end as usize];
+
     return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
                     cpu_state_flags: {}
-                    stack: {}",
+                    stack: {:#?}",
      self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y,
      self.processor_status,
-     &self.memory.memory[0u8]);
+     stack);
   }
 
   /// Assumes the next part of the program counter is an address
@@ -182,6 +186,8 @@ impl CPU
   }
 
   pub fn run_program(&mut self) {
+    self.push_stack(0x0F);
+
     loop {
       let code = self.memory.read_mem_u8(self.program_counter);
       self.program_counter += 1; // consume the read instruction and point to the next
@@ -296,13 +302,13 @@ impl CPU
 impl CPU {
 
   fn push_stack(&mut self, data: u8) {
-    self.memory.write_mem_u8(self.stack_pointer + self.stack_base as u16, data);
-    self.stack_base -= 1;
+    self.memory.write_mem_u8(self.stack_pointer - self.stack_base as u16, data);
+    self.stack_base = self.stack_base.wrapping_add(1);
   }
 
   fn pop_stack(&mut self) -> u8 {
-    let val = self.memory.read_mem_u8(self.stack_pointer + self.stack_base as u16);
-    self.stack_pointer -= 1;
+    let val = self.memory.read_mem_u8(self.stack_pointer - self.stack_base as u16);
+    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     return val;
   }
 
