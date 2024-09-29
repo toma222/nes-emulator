@@ -175,18 +175,27 @@ impl CPU
   /// it then writes the first instruction (0x8000) to 0xFFFC.
   /// 0xFFFC is were the program looks for the fist instruction of the program
   pub fn load_program(&mut self, program: Vec<u8>) {
-    self.memory.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-    self.memory.write_mem_u16(0xFFFC, 0x8000);
+    self.memory.memory[0x0600 .. (0x0600 + program.len())].copy_from_slice(&program[..]);
+    self.memory.write_mem_u16(0xFFFC, 0x0600);
   }
 
   pub fn load_and_run_program(&mut self, program: Vec<u8>) {
     self.load_program(program);
     self.reset();
-    self.run_program();
+    self.run();
   }
 
-  pub fn run_program(&mut self) {
+  pub fn run(&mut self) {
+    self.run_with_callback(|_| {});
+  }
+
+  pub fn run_with_callback<F>(&mut self, mut callback: F)
+  where
+    F: FnMut(&mut CPU),
+  {
     loop {
+      callback(self);
+
       let code = self.memory.read_mem_u8(self.program_counter);
       self.program_counter += 1; // consume the read instruction and point to the next
 
