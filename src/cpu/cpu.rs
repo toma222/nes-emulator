@@ -108,8 +108,11 @@ impl CPU
 
   pub fn log_dump_registers_string(&self) -> String {
     return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
-                    cpu_state_flags {}",
-     self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y, self.processor_status);
+                    cpu_state_flags: {}
+                    stack: {}",
+     self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y,
+     self.processor_status,
+     &self.memory.memory[0u8]);
   }
 
   /// Assumes the next part of the program counter is an address
@@ -190,8 +193,18 @@ impl CPU
 
       match code {
           // LDA opcode
-          0xA9 | 0xA5  | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
+          0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
             self.lda(&opcode.addressing_mode);
+          } 
+
+          // ldx
+          0xA2 | 0xA6 | 0xB6 | 0xAE | 0xBE => {
+            self.ldx(&opcode.addressing_mode);
+          } 
+          
+          // ldy
+          0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => {
+            self.ldy(&opcode.addressing_mode);
           } 
 
           // adc opcode
@@ -289,7 +302,7 @@ impl CPU {
 
   fn pop_stack(&mut self) -> u8 {
     let val = self.memory.read_mem_u8(self.stack_pointer + self.stack_base as u16);
-
+    self.stack_pointer -= 1;
     return val;
   }
 
@@ -327,6 +340,16 @@ impl CPU {
     self.processor_status.update_zero_and_negative_flags(self.accumulator);
   }
 
+  fn set_register_x(&mut self, data: u8) {
+    self.index_register_x = data;
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+  }
+
+  fn set_register_y(&mut self, data: u8) {
+    self.index_register_y = data;
+    self.processor_status.update_zero_and_negative_flags(self.accumulator);
+  }
+
   /// Add with carry
   /// Adds the contents of a memory location to the accumulator with the carry bit
   /// if it overflows then we set the carry bit
@@ -343,6 +366,20 @@ impl CPU {
     let value = self.memory.read_mem_u8(addr);
 
     self.set_register_a(value);
+  }
+
+  fn ldx(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let value = self.memory.read_mem_u8(addr);
+
+    self.set_register_x(value);
+  }
+
+  fn ldy(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let value = self.memory.read_mem_u8(addr);
+
+    self.set_register_y(value);
   }
 
   /// Logical and
@@ -522,6 +559,28 @@ impl CPU {
   fn jmp(&mut self, mode: &AddressingMode) {
     let addr = self.get_operand_address(mode);
     self.program_counter = addr;
+  }
+
+  /// Pushes the address (minus one) of the return point on to the
+  /// stack and then sets the program counter to the target memory address
+  fn jsr(&mut self, mode: &AddressingMode) {
+    let addr = self.get_operand_address(mode);
+    let lo = self.program_counter as u8;
+    let hi = (self.program_counter >> 8) as u8;
+    self.push_stack(hi);
+    self.push_stack(lo);
+
+    self.program_counter = addr;
+  }
+
+  /// used at the end of a subroutine to return from the subroutine
+  fn rts(&mut self) {
+    let lo = self.pop_stack();
+    let hi = self.pop_stack();
+
+    let jmp_to = (hi as u16) << 8 | (lo as u16);
+
+    self.program_counter = jmp_to;
   }
 }
 
