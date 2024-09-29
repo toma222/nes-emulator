@@ -2,7 +2,7 @@
 
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
-use log::trace;
+use log::{trace, warn};
 
 use crate::cpu::processor_status::{ProcessorStatusFlags, ProcessorStatus};
 use crate::cpu::memory_map::MemoryMap;
@@ -330,7 +330,10 @@ impl CPU
           0x9A => self.index_register_y = self.memory.read_mem_u8(self.stack_pointer - self.stack_base.wrapping_sub(1) as u16),
           0x98 => self.accumulator = self.index_register_y,
 
-          0x00 => return,
+          0x00 => {
+            warn!("instruction brk is not implemented because we don't have interrupts");
+            break;
+          },
           _ => todo!()
       }
 
@@ -637,7 +640,7 @@ impl CPU {
   /// used at the end of a subroutine to return from the subroutine
   /// gets the return value from the stack
   fn rts(&mut self) {
-    self.program_counter = u16::from_le_bytes([self.pop_stack(), self.pop_stack()]);;
+    self.program_counter = u16::from_le_bytes([self.pop_stack(), self.pop_stack()]);
   }
 
   /// preforms the logical shift right to the defined memory address
@@ -739,6 +742,24 @@ impl CPU {
   fn sty(&mut self, mode: &AddressingMode) {
     let addr = self.get_operand_address(mode);
     self.memory.write_mem_u8(addr, self.index_register_y);
+  }
+
+  /// Forces the generation of an interrupt and pushes the flags and current
+  /// instruction to the stack. It sets program counter to u16 value in 0xFFFE
+  fn brk(&mut self) {
+    /* 
+    let bytes = self.program_counter.to_le_bytes();
+
+    self.push_stack(bytes[1]);
+    self.push_stack(bytes[0]);
+    self.push_stack(self.processor_status.0);
+
+    self.processor_status.set_flag_true(ProcessorStatusFlags::BreakCommand);
+
+    let interrupt_handler = self.memory.read_mem_u16(0xFFFE);
+
+    self.program_counter = interrupt_handler;
+    */
   }
 }
 
