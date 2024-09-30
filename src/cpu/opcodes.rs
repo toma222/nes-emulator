@@ -1,12 +1,10 @@
-
 use std::collections::HashMap;
 
 use crate::cpu::cpu::AddressingMode;
 use lazy_static::lazy_static;
 
 #[derive(Debug)]
-pub struct OpCode
-{
+pub struct OpCode {
     pub code: u8,
     pub mnemonic: &'static str,
     pub bytes: u8,
@@ -16,7 +14,13 @@ pub struct OpCode
 
 // make a way to match the mnemonic in the cpu match statement instead of the bytes
 impl OpCode {
-    fn new(code: u8, mnemonic: &'static str, bytes: u8, cycles: u8, addressing_mode: AddressingMode) -> OpCode {
+    fn new(
+        code: u8,
+        mnemonic: &'static str,
+        bytes: u8,
+        cycles: u8,
+        addressing_mode: AddressingMode,
+    ) -> OpCode {
         OpCode {
             code,
             mnemonic,
@@ -27,7 +31,10 @@ impl OpCode {
     }
 
     pub fn to_string(&self) -> String {
-        return format!("inst: {}, code: {:#x}, addr: {:?}", self.mnemonic, self.code, self.addressing_mode);
+        return format!(
+            "inst: {}, code: {:#x}, addr: {:?}",
+            self.mnemonic, self.code, self.addressing_mode
+        );
     }
 }
 
@@ -43,7 +50,7 @@ lazy_static! {
         OpCode::new(0xB9, "LDA", 3, 4, AddressingMode::AbsoluteY), // +1 if page crossed
         OpCode::new(0xA1, "LDA", 2, 6, AddressingMode::IndirectX),
         OpCode::new(0xB1, "LDA", 2, 5, AddressingMode::IndirectY), // +1 if page crossed
-        
+
         OpCode::new(0xA2, "LDX", 2, 2, AddressingMode::Immediate),
         OpCode::new(0xA6, "LDX", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0xB6, "LDX", 2, 4, AddressingMode::ZeroPageY),
@@ -136,7 +143,7 @@ lazy_static! {
         // jump
         OpCode::new(0x4C, "JMP", 3, 3, AddressingMode::Absolute),
         OpCode::new(0x6C, "JMP", 3, 3, AddressingMode::Indirect),
-    
+
         // jump to subroutine
         OpCode::new(0x20, "JSR", 3, 6, AddressingMode::Absolute),
 
@@ -186,7 +193,7 @@ lazy_static! {
         OpCode::new(0x8A, "TXA", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0x9A, "TXS", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0x98, "TYA", 1, 2, AddressingMode::NoneAddressing),
-    
+
         /* ------ INCREMENT AND DECREMENT INSTRUCTIONS ------ */
         OpCode::new(0xE6, "INC", 2, 5, AddressingMode::ZeroPage),
         OpCode::new(0xF6, "INC", 2, 6, AddressingMode::ZeroPageX),
@@ -263,6 +270,5 @@ lazy_static! {
         }
         map
     };
-    
-}
 
+}
