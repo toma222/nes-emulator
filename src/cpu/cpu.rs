@@ -297,7 +297,7 @@ impl CPU
           // INC
           0xE6 | 0xF6 | 0xEE | 0xFE => self.inc(&opcode.addressing_mode),
           0xE8 => self.set_register_x(self.index_register_x.wrapping_add(1)),
-          0xC8 => self.iny(),
+          0xC8 => self.set_register_y(self.index_register_y.wrapping_add(1)),
 
           0x4C => {
             let mem_address = self.memory.read_mem_u16(self.program_counter);
@@ -680,6 +680,7 @@ impl CPU {
     self.processor_status.update_zero_and_negative_flags(xor_res);
   }
 
+  /* 
   fn jmp(&mut self, mode: &AddressingMode) {
     let addr = self.get_operand_address(mode);
     self.program_counter = self.memory.read_mem_u16(addr);
@@ -697,12 +698,13 @@ impl CPU {
 
     self.program_counter = addr;
   }
-
+  
   /// used at the end of a subroutine to return from the subroutine
   /// gets the return value from the stack
   fn rts(&mut self) {
     self.program_counter = u16::from_le_bytes([self.pop_stack(), self.pop_stack()]);
   }
+  */
 
   /// preforms the logical shift right to the defined memory address
   fn lsr(&mut self, mode: &AddressingMode) {
@@ -809,7 +811,7 @@ impl CPU {
     self.memory.write_mem_u8(addr, self.index_register_y);
   }
 
-  /// Adds one to the x register
+  /* 
   fn inx(&mut self) {
     self.index_register_x = self.index_register_x.wrapping_add(1);
     self.processor_status.update_zero_and_negative_flags(self.index_register_x);
@@ -820,6 +822,7 @@ impl CPU {
     self.index_register_y = self.index_register_y.wrapping_add(1);
     self.processor_status.update_zero_and_negative_flags(self.index_register_y);
   }
+  */
 
   /// Forces the generation of an interrupt and pushes the flags and current
   /// instruction to the stack. It sets program counter to u16 value in 0xFFFE
