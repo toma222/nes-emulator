@@ -2,10 +2,41 @@
 
 use log::{trace, warn};
 
-use crate::cpu::memory_map::MemoryMap;
+// use crate::cpu::memory_map::MemoryMap;
 use crate::cpu::processor_status::{ProcessorStatus, ProcessorStatusFlags};
+use crate::cpu::memory::Mem;
 
 use super::opcodes::OPCODES_MAP; // 1.3.4
+
+/// This defines the memory
+/// and has some implementations for managing that memory
+/// This holds the memory. All of it <3.
+/// The first 256 byte page of memory (0x0000 - 0x00FF) is Zero Page
+/// The second page (0x0100-0x01FF) is the system stack
+/// The other reserved parts of the memory map is 0xFFFA to 0xFFFF
+/// that part has to be programed with the interrupt handler (0xFFFA/B)
+/// the power reset location and the BRK/interrupt request handler
+pub struct MemoryMap {
+    pub memory: [u8; 0xFFFF],
+}
+
+impl MemoryMap {
+    pub fn new() -> MemoryMap {
+        MemoryMap {
+            memory: [0; 0xFFFF],
+        }
+    }
+}
+
+impl Mem for MemoryMap {
+    fn read_mem_u8(&self, loc: u16) -> u8 {
+        return self.memory[loc as usize];
+    }
+
+    fn write_mem_u8(&mut self, loc: u16, data: u8) {
+        self.memory[loc as usize] = data;
+    }
+}
 
 /// Defines the state of a 6502 CPU
 /// just a reminder that the CPU will store data little endian <3

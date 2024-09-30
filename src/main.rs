@@ -3,6 +3,7 @@ mod cpu;
 use cpu::cpu::CPU;
 
 extern crate env_logger;
+use cpu::memory::Mem;
 pub use log::{debug, error, info, log_enabled, Level};
 use rand::Rng;
 use sdl2::pixels::PixelFormatEnum;
