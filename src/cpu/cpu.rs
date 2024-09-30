@@ -1,5 +1,7 @@
 // as defined in http://www.6502.org/users/obelisk/6502/registers.html
 
+use std::vec;
+
 use log::{trace, warn};
 
 // use crate::cpu::memory_map::MemoryMap;
@@ -7,7 +9,7 @@ use crate::cpu::bus::Bus;
 use crate::cpu::memory::Mem;
 use crate::cpu::processor_status::{ProcessorStatus, ProcessorStatusFlags};
 
-use super::opcodes::OPCODES_MAP; // 1.3.4
+use super::opcodes::{OpCode, OPCODES_MAP}; // 1.3.4
 
 /// This defines the memory
 /// and has some implementations for managing that memory
@@ -64,10 +66,13 @@ pub struct CPU {
     /// same as x
     pub index_register_y: u8,
 
+    pub current_cycle: u32,
+
     /// Holds flags for when operations are done
     /// this u8 is controlled with the processor status flags enum
     pub processor_status: ProcessorStatus,
 
+    /// Provides an interface for memory access
     pub bus: Bus,
 }
 
@@ -139,6 +144,7 @@ impl CPU {
             accumulator: 0,
             index_register_x: 0,
             index_register_y: 0,
+            current_cycle: 0,
             processor_status: ProcessorStatus(ProcessorStatusFlags::Default as u8),
             bus,
             // memory: MemoryMap::new(),
@@ -146,10 +152,43 @@ impl CPU {
     }
 
     pub fn log_dump_registers_string(&self) -> String {
+
+
         return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {:#x} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
                     cpu_state_flags: {}",
                     self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y,
                     self.processor_status);
+    }
+
+    pub fn dump_instruction_str(&self, code: &OpCode) -> String {
+        // prg counter | instr hex | instr mne <params> | x reg | y reg | a reg | cpu cycle
+        let instruction_params: Vec<u8> = match code.addressing_mode {
+            AddressingMode::NoneAddressing => Vec::new(),
+            _ => {
+                let mut params: Vec<u8> = Vec::new();
+                
+                for param in 1..code.bytes {
+                    params.push(self.bus.read_mem_u8(self.program_counter + param as u16));
+                }
+
+                params
+            }
+        };
+
+        
+        // let addr = self.get_operand_address(mode);
+        // let mem_val = self.read_mem_u8(addr);
+        // instruction_params.push();
+
+        return format!("CNT {:#x} | {:#x} {}  {:02X?} | REG - x: {:#x} - y: {:#x} - a {:#x} | CYC {}",
+                self.program_counter,
+                code.code,
+                code.mnemonic,
+                instruction_params,
+                self.index_register_x,
+                self.index_register_y,
+                self.accumulator,
+                self.current_cycle); 
     }
 
     /// Assumes the next part of the program counter is an address
@@ -244,20 +283,20 @@ impl CPU {
             callback(self);
 
             let code = self.read_mem_u8(self.program_counter);
-            self.program_counter += 1; // consume the read instruction and point to the next
-
             let opcode = OPCODES_MAP.get(&code).expect(&format!(
-                "OpCode {:x} is not recognized. dumping CPU\n {}",
+                "OpCode {:x} is not in the OPCODES_MAP. dumping CPU\n {}",
                 code,
                 self.log_dump_registers_string()
             ));
+
+            trace!("{}", self.dump_instruction_str(&opcode));
+
+            self.program_counter += 1; // consume the read instruction and point to the next
+
+            // used to preform a check to see if the program counter has incremented
             let program_counter_state = self.program_counter;
 
-            trace!(
-                "prg_c: {:#x} | {}",
-                self.program_counter - 1,
-                opcode.to_string()
-            );
+            self.current_cycle += opcode.cycles as u32;
 
             match code {
                 /* ------ LOAD INSTRUCTIONS ------ */

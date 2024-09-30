@@ -1,5 +1,6 @@
 mod cpu;
 
+
 use cpu::cpu::CPU;
 
 extern crate env_logger;
@@ -151,7 +152,7 @@ fn main() {
             canvas.present();
         }
 
-        ::std::thread::sleep(std::time::Duration::new(0, 100));
+        ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000));
     });
 
     info!("{}", cpu.log_dump_registers_string());

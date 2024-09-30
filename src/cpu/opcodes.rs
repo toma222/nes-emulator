@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use crate::cpu::cpu::AddressingMode;
 use lazy_static::lazy_static;
 
+use super::cpu::CPU;
+
 #[derive(Debug)]
 pub struct OpCode {
     pub code: u8,
@@ -32,7 +34,14 @@ impl OpCode {
 
     pub fn to_string(&self) -> String {
         return format!(
-            "inst: {}, code: {:#x}, addr: {:?}",
+            "{} | {} -> addr: {:?}",
+            self.mnemonic, self.code, self.addressing_mode
+        );
+    }
+
+    pub fn to_string_with_memory(&self, cpu: &CPU) -> String {
+        return format!(
+            "{} | {} -> addr: {:?}",
             self.mnemonic, self.code, self.addressing_mode
         );
     }
