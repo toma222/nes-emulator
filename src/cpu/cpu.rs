@@ -170,12 +170,12 @@ impl std::fmt::Display for CPU {
         }
         write!(f, "{}", "     ".repeat(3 - opcode.bytes as usize)).unwrap();
 
-        write!(f, " | A:{:#04x}", self.accumulator).unwrap();
-        write!(f, " X:{:#04x}", self.index_register_x).unwrap();
-        write!(f, " Y:{:#04x}", self.index_register_y).unwrap();
+        write!(f, " | A:{:#04x}   ", self.accumulator).unwrap();
+        write!(f, "X:{:#04x}   ", self.index_register_x).unwrap();
+        write!(f, "Y:{:#04x}   ", self.index_register_y).unwrap();
         write!(
             f,
-            " SP:{:#06x} |",
+            "SP:{:#06x} |",
             self.stack_pointer - self.stack_base as u16
         )
         .unwrap();

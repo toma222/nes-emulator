@@ -153,6 +153,6 @@ fn main() {
             canvas.present();
         }
 
-        ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000));
+        ::std::thread::sleep(std::time::Duration::new(0, 1_000));
     });
 }
