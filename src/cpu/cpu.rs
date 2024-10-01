@@ -9,7 +9,7 @@ use crate::cpu::bus::Bus;
 use crate::cpu::memory::Mem;
 use crate::cpu::processor_status::{ProcessorStatus, ProcessorStatusFlags};
 
-use super::opcodes::{OpCode, OPCODES_MAP}; // 1.3.4
+use super::opcodes::{self, OpCode, OPCODES_MAP}; // 1.3.4
 
 /// This defines the memory
 /// and has some implementations for managing that memory
@@ -135,6 +135,57 @@ pub enum AddressingMode {
     IndirectY,
 }
 
+impl std::fmt::Display for CPU {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let code = self.read_mem_u8(self.program_counter);
+        let opcode = OPCODES_MAP
+            .get(&code)
+            .expect(&format!("OpCode {:x} is not in the OPCODES_MAP\n", code));
+
+        // let mut print_strings: Vec<String> = Vec::new();
+
+        write!(f, "{:#06x} | ", self.program_counter).unwrap();
+
+        for param in 0..opcode.bytes as u16 {
+            write!(
+                f,
+                "{:#04x} ",
+                self.read_mem_u8(self.program_counter + param) as u8
+            )
+            .unwrap();
+        }
+
+        write!(f, "{}", "     ".repeat(3 - opcode.bytes as usize)).unwrap();
+
+        // format this better
+        // print_strings.push(opcode.mnemonic.to_string());
+        write!(f, "| {} ", opcode.mnemonic.to_string()).unwrap();
+        for param in 1..opcode.bytes as u16 {
+            write!(
+                f,
+                " {:#04x}",
+                self.read_mem_u8(self.program_counter + param) as u8
+            )
+            .unwrap();
+        }
+        write!(f, "{}", "     ".repeat(3 - opcode.bytes as usize)).unwrap();
+
+        write!(f, " | A:{:#04x}", self.accumulator).unwrap();
+        write!(f, " X:{:#04x}", self.index_register_x).unwrap();
+        write!(f, " Y:{:#04x}", self.index_register_y).unwrap();
+        write!(
+            f,
+            " SP:{:#06x} |",
+            self.stack_pointer - self.stack_base as u16
+        )
+        .unwrap();
+
+        write!(f, " CYC:{}", self.current_cycle).unwrap();
+
+        write!(f, "")
+    }
+}
+
 impl CPU {
     pub fn new(bus: Bus) -> CPU {
         return CPU {
@@ -149,46 +200,6 @@ impl CPU {
             bus,
             // memory: MemoryMap::new(),
         };
-    }
-
-    pub fn log_dump_registers_string(&self) -> String {
-
-
-        return format!("prgm_ctr: {:#x} | stk_ptr: {:#x} | acc_reg: {:#x} | ind_reg_x: {:#x} | ind_reg_y: {:#x} |
-                    cpu_state_flags: {}",
-                    self.program_counter, self.stack_pointer, self.accumulator, self.index_register_x, self.index_register_y,
-                    self.processor_status);
-    }
-
-    pub fn dump_instruction_str(&self, code: &OpCode) -> String {
-        // prg counter | instr hex | instr mne <params> | x reg | y reg | a reg | cpu cycle
-        let instruction_params: Vec<u8> = match code.addressing_mode {
-            AddressingMode::NoneAddressing => Vec::new(),
-            _ => {
-                let mut params: Vec<u8> = Vec::new();
-                
-                for param in 1..code.bytes {
-                    params.push(self.bus.read_mem_u8(self.program_counter + param as u16));
-                }
-
-                params
-            }
-        };
-
-        
-        // let addr = self.get_operand_address(mode);
-        // let mem_val = self.read_mem_u8(addr);
-        // instruction_params.push();
-
-        return format!("CNT {:#x} | {:#x} {}  {:02X?} | REG - x: {:#x} - y: {:#x} - a {:#x} | CYC {}",
-                self.program_counter,
-                code.code,
-                code.mnemonic,
-                instruction_params,
-                self.index_register_x,
-                self.index_register_y,
-                self.accumulator,
-                self.current_cycle); 
     }
 
     /// Assumes the next part of the program counter is an address
@@ -285,11 +296,8 @@ impl CPU {
             let code = self.read_mem_u8(self.program_counter);
             let opcode = OPCODES_MAP.get(&code).expect(&format!(
                 "OpCode {:x} is not in the OPCODES_MAP. dumping CPU\n {}",
-                code,
-                self.log_dump_registers_string()
+                code, self
             ));
-
-            trace!("{}", self.dump_instruction_str(&opcode));
 
             self.program_counter += 1; // consume the read instruction and point to the next
 
@@ -1064,7 +1072,7 @@ mod tests {
     #[test]
     fn cpu_new() {
         let bus = Bus::new(test_rom());
-        let mut cpu = CPU::new(bus);
+        let cpu = CPU::new(bus);
         assert_eq!(cpu.index_register_x, 0);
     }
 

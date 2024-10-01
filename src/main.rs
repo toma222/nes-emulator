@@ -1,6 +1,5 @@
 mod cpu;
 
-
 use cpu::cpu::CPU;
 
 extern crate env_logger;
@@ -140,6 +139,8 @@ fn main() {
     let mut rng = rand::thread_rng();
 
     cpu.run_with_callback(move |cpu| {
+        println!("{}", cpu);
+
         // read user input and write it to mem [0xFF]
         handle_user_input(cpu, &mut event_pump);
         // render screen state
@@ -154,6 +155,4 @@ fn main() {
 
         ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000));
     });
-
-    info!("{}", cpu.log_dump_registers_string());
 }
