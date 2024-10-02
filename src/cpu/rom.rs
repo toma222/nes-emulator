@@ -1,3 +1,5 @@
+use std::fs;
+
 
 const NES_TAG: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 const PRG_ROM_PAGE_SIZE: usize = 16384;
@@ -24,6 +26,15 @@ pub struct Rom {
 }
 
 impl Rom {
+    pub fn new_from_file(path: String) -> Result<Rom, String> {
+        let contents = match fs::read(path) {
+            Ok(res) => res,
+            Err(err) => return Err("new_from_file was not able to read rom from file".to_string())
+        };
+
+        return Ok(Rom::new(&contents).unwrap());
+    }
+
     pub fn new(raw: &Vec<u8>) -> Result<Rom, String> {
         if &raw[0..4] != NES_TAG {
             return Err("File is not in iNES format".to_string());
